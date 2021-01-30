@@ -8,8 +8,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 )
 
-// NewConfig - returns an aws config struct with access key + secret + region set
-func NewConfig(key, sec string) (*aws.Config, error) {
+// NewAmazonConfig - returns an aws config struct with access key + secret + region set
+func NewAmazonConfig(key, sec string) (*aws.Config, error) {
 	cfg, err := config.LoadDefaultConfig(context.Background(),
 		// Hard coded credentials.
 		config.WithCredentialsProvider(credentials.StaticCredentialsProvider{

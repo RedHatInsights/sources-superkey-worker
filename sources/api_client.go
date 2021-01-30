@@ -12,7 +12,8 @@ import (
 
 var json = `{"identity": {"account_number": "$ACCT$", "user": {"is_org_admin": true}}}`
 
-// NewAPIClient - returns a configured SourcesApiClient
+// NewAPIClient - creates a sources api client with default header for account
+// returns: Sources API Client
 func NewAPIClient(acct string) *sapi.APIClient {
 	conf := config.Get()
 
@@ -28,6 +29,7 @@ func NewAPIClient(acct string) *sapi.APIClient {
 
 // encodedIdentity - base64 decodes a x-rh-identity substituting the account number
 // passed in
+// returns: base64 x-rh-id string
 func encodedIdentity(acct string) string {
 	encoded := bytes.NewBuffer([]byte(""))
 	encoder := base64.NewEncoder(base64.StdEncoding, encoded)

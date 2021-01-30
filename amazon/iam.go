@@ -3,16 +3,13 @@ package amazon
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 )
 
 // CreateRole - creates a role with name from a json payload
 // returns: error
-func CreateRole(name, payload string, cfg *aws.Config) error {
-	client := iam.NewFromConfig(*cfg)
-
-	_, err := client.CreateRole(context.Background(), &iam.CreateRoleInput{
+func (a *Client) CreateRole(name, payload string) error {
+	_, err := a.Iam.CreateRole(context.Background(), &iam.CreateRoleInput{
 		AssumeRolePolicyDocument: &payload,
 		RoleName:                 &name,
 	})
@@ -26,10 +23,8 @@ func CreateRole(name, payload string, cfg *aws.Config) error {
 
 // DestroyRole - destroys a role with name
 // returns: error
-func DestroyRole(name string, cfg *aws.Config) error {
-	client := iam.NewFromConfig(*cfg)
-
-	_, err := client.DeleteRole(context.Background(), &iam.DeleteRoleInput{
+func (a *Client) DestroyRole(name string) error {
+	_, err := a.Iam.DeleteRole(context.Background(), &iam.DeleteRoleInput{
 		RoleName: &name,
 	})
 
@@ -43,10 +38,8 @@ func DestroyRole(name string, cfg *aws.Config) error {
 // CreatePolicy - creates an IAM policy with given name + payload, the payload
 // comes from the superkey metadata in the job payload
 // returns: (ARN of new policy, error)
-func CreatePolicy(name, payload string, cfg *aws.Config) (*string, error) {
-	client := iam.NewFromConfig(*cfg)
-
-	out, err := client.CreatePolicy(context.Background(), &iam.CreatePolicyInput{
+func (a *Client) CreatePolicy(name, payload string) (*string, error) {
+	out, err := a.Iam.CreatePolicy(context.Background(), &iam.CreatePolicyInput{
 		PolicyDocument: &payload,
 		PolicyName:     &name,
 	})
@@ -61,10 +54,8 @@ func CreatePolicy(name, payload string, cfg *aws.Config) (*string, error) {
 // DestroyPolicy - inverse of CreatePolicy, takes an ARN pointing to a Policy
 // and destroys it.
 // returns: error
-func DestroyPolicy(arn string, cfg *aws.Config) error {
-	client := iam.NewFromConfig(*cfg)
-
-	_, err := client.DeletePolicy(context.Background(), &iam.DeletePolicyInput{
+func (a *Client) DestroyPolicy(arn string) error {
+	_, err := a.Iam.DeletePolicy(context.Background(), &iam.DeletePolicyInput{
 		PolicyArn: &arn,
 	})
 
@@ -77,10 +68,8 @@ func DestroyPolicy(arn string, cfg *aws.Config) error {
 
 // BindPolicyToRole - attaches policy (arn) to role (name)
 // returns: error
-func BindPolicyToRole(policy, role string, cfg *aws.Config) error {
-	client := iam.NewFromConfig(*cfg)
-
-	_, err := client.AttachRolePolicy(context.Background(), &iam.AttachRolePolicyInput{
+func (a *Client) BindPolicyToRole(policy, role string) error {
+	_, err := a.Iam.AttachRolePolicy(context.Background(), &iam.AttachRolePolicyInput{
 		PolicyArn: &policy,
 		RoleName:  &role,
 	})
@@ -94,10 +83,8 @@ func BindPolicyToRole(policy, role string, cfg *aws.Config) error {
 
 // UnBindPolicyToRole - detaches policy (arn) from role (name)
 // returns: error
-func UnBindPolicyToRole(role, policy string, cfg *aws.Config) error {
-	client := iam.NewFromConfig(*cfg)
-
-	_, err := client.DetachRolePolicy(context.Background(), &iam.DetachRolePolicyInput{
+func (a *Client) UnBindPolicyToRole(role, policy string) error {
+	_, err := a.Iam.DetachRolePolicy(context.Background(), &iam.DetachRolePolicyInput{
 		PolicyArn: &policy,
 		RoleName:  &role,
 	})
