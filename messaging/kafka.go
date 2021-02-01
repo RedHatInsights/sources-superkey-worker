@@ -8,7 +8,8 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-// Consumer - I'm putting this comment just so I don't get fined by the linter
+// Consumer creates a consumer for a topic
+// returns: a kafka reader configured to listen on topic with groupID set
 func Consumer(topic string) *kafka.Reader {
 	conf := config.Get()
 
@@ -19,14 +20,16 @@ func Consumer(topic string) *kafka.Reader {
 	})
 }
 
-// ConsumeWithFunction testing
+// ConsumeWithFunction consumes on topic calling function on each message
+// consumed
 func ConsumeWithFunction(topic string, whatdo func(msg kafka.Message)) {
 	r := Consumer(topic)
 
 	for {
+		// ReadMessage blocks until a message is read.
 		msg, err := r.ReadMessage(context.Background())
 		if err != nil {
-			l.Log.Errorf("Error while processing message: %e", err)
+			l.Log.Errorf("Error while processing message: %v", err)
 			continue
 		}
 
