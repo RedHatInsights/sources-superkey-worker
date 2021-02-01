@@ -7,6 +7,8 @@ import (
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 )
 
+// Client the amazon client object, holds credentials and API clients for each service necessary
+// which are set when instantiated from the `NewClient` method.
 type Client struct {
 	AccessKey   string
 	SecretKey   string
@@ -27,12 +29,16 @@ func NewClient(key, sec string, apis ...string) (*Client, error) {
 
 	a.Credentials = creds
 
-	for _, api := range apis {
+	for _, api := range getRequiredApis(apis) {
 		switch api {
 		case "s3":
-			a.S3 = s3.NewFromConfig(*creds)
+			if a.S3 == nil {
+				a.S3 = s3.NewFromConfig(*creds)
+			}
 		case "iam":
-			a.Iam = iam.NewFromConfig(*creds)
+			if a.Iam == nil {
+				a.Iam = iam.NewFromConfig(*creds)
+			}
 		case "reporting":
 			l.Log.Warn("Reporting not implemented yet")
 		default:
@@ -42,4 +48,18 @@ func NewClient(key, sec string, apis ...string) (*Client, error) {
 	}
 
 	return &a, nil
+}
+
+func getRequiredApis(steps []string) []string {
+	apis := make([]string, 0)
+	for _, step := range steps {
+		switch step {
+		case "s3":
+			apis = append(apis, "s3")
+		case "role", "policy", "bind_role":
+			apis = append(apis, "iam")
+		}
+	}
+
+	return apis
 }

@@ -25,10 +25,10 @@ func ProcessSuperkeyRequest(msg kafka.Message) {
 
 		fmt.Printf("%v\n", req)
 		l.Log.Infof("Forging request: %v", req)
-		newApp, err := Forge(req)
+		newApp, err := provider.Forge(req)
 		if err != nil {
 			l.Log.Errorf("Error forging request: %v", err)
-			TearDown(*newApp)
+			provider.TearDown(*newApp)
 			return
 		}
 		l.Log.Infof("Finished Forging request: %v", req)

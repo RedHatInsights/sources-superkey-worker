@@ -10,7 +10,7 @@ type AmazonProvider struct {
 	Client *amazon.Client
 }
 
-// ForgeApplication method for providing superkey
+// ForgeApplication -=
 func (a *AmazonProvider) ForgeApplication(request *SuperKeyRequest) (*ForgedProduct, error) {
 	f := ForgedProduct{
 		Request:        request,
