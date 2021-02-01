@@ -12,8 +12,8 @@ func main() {
 
 	// anonymous function, kinda like passing a block in ruby.
 	messaging.ConsumeWithFunction("testtopic", func(msg kafka.Message) {
-		l.Log.Tracef("Started processing message %s with %s", msg.Key, string(msg.Value))
-		Work(msg)
-		l.Log.Tracef("Finished processing message %s with %s", msg.Key, string(msg.Value))
+		l.Log.Tracef("Started processing message %s", string(msg.Value))
+		ProcessSuperkeyRequest(msg)
+		l.Log.Tracef("Finished processing message %s", string(msg.Value))
 	})
 }

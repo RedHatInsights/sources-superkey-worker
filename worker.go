@@ -5,26 +5,12 @@ import (
 	"fmt"
 
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
+	"github.com/redhatinsights/sources-superkey-worker/provider"
 	"github.com/segmentio/kafka-go"
 )
 
-// Request - struct representing a request for a superkey
-type Request struct {
-	TenantID        string         `json:"tenant_id"`
-	ApplicationType string         `json:"application_type"`
-	SuperKeySteps   []SuperKeyStep `json:"superkey_steps"`
-}
-
-// SuperKeyStep - struct representing a step for SuperKey
-type SuperKeyStep struct {
-	Step          int                 `json:"step"`
-	Name          string              `json:"name"`
-	Payload       string              `json:"payload"`
-	Substitutions []map[string]string `json:"substitutions"`
-}
-
-// Work - processes messages.
-func Work(msg kafka.Message) {
+// ProcessSuperkeyRequest - processes messages.
+func ProcessSuperkeyRequest(msg kafka.Message) {
 	eventType := getEventType(msg.Headers)
 
 	switch eventType {
@@ -38,7 +24,20 @@ func Work(msg kafka.Message) {
 		}
 
 		fmt.Printf("%v\n", req)
+		l.Log.Infof("Forging request: %v", req)
+		newApp, err := Forge(req)
+		if err != nil {
+			l.Log.Errorf("Error forging request: %v", err)
+			TearDown(*newApp)
+			return
+		}
+		l.Log.Infof("Finished Forging request: %v", req)
 		l.Log.Infof("Finished processing `create_application` request for tenant %v type %v", req.TenantID, req.ApplicationType)
+
+	case "delete_application":
+		// TODO: teardown
+		l.Log.Warn("delete_application not implemented yet")
+
 	default:
 		l.Log.Warn("Unknown event_type")
 	}
@@ -46,8 +45,8 @@ func Work(msg kafka.Message) {
 
 // parseRequest - parses a kafka message's value ([]byte) into a Request struct
 // returns: *Request
-func parseRequest(value []byte) (*Request, error) {
-	request := Request{}
+func parseRequest(value []byte) (*provider.SuperKeyRequest, error) {
+	request := provider.SuperKeyRequest{}
 	err := json.Unmarshal(value, &request)
 	if err != nil {
 		return nil, err
