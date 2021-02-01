@@ -22,6 +22,7 @@ func main() {
 		Brokers: []string{"localhost:9092"},
 		Topic:   topic,
 	})
+	defer w.Close()
 
 	msgs := make([]kafka.Message, 0, count)
 
@@ -38,7 +39,7 @@ func main() {
 
 	err := w.WriteMessages(context.Background(), msgs...)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "AAA failed %e\n", err)
+		fmt.Fprintf(os.Stderr, "AAA failed %v\n", err)
 		os.Exit(1)
 	}
 }
