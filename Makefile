@@ -12,4 +12,4 @@ run: build
 runcontainer: container
 	docker run -ti --rm --net host -e KAFKA_BROKERS=localhost:9092 sources-superkey-worker
 
-.PHONY: build container
+.PHONY: build container run runcontainer

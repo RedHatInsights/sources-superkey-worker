@@ -120,7 +120,9 @@ func substiteInPayload(payload string, f *ForgedApplication, substitutions map[s
 //
 // Basically the StepsCompleted field keeps track of what parts of the forge operation
 // went smoothly, and we just go through them in reverse and handle them.
-func (a *AmazonProvider) TearDown(f *ForgedApplication) error {
+func (a *AmazonProvider) TearDown(f *ForgedApplication) []error {
+	errors := make([]error, 0)
+
 	// unbind the role first (if it happened) so we can cleanly delete the policy and the role.
 	if f.StepsCompleted["bind_role"] != nil {
 		policyArn := f.StepsCompleted["policy"]["output"]
@@ -129,6 +131,7 @@ func (a *AmazonProvider) TearDown(f *ForgedApplication) error {
 		err := a.Client.UnBindPolicyToRole(policyArn, role)
 		if err != nil {
 			l.Log.Warnf("Failed to unbind policy %v from role %v", policyArn, role)
+			errors = append(errors, err)
 		}
 	}
 
@@ -138,6 +141,7 @@ func (a *AmazonProvider) TearDown(f *ForgedApplication) error {
 		err := a.Client.DestroyPolicy(policyArn)
 		if err != nil {
 			l.Log.Warnf("Failed to destroy policy %v", policyArn)
+			errors = append(errors, err)
 		}
 	}
 
@@ -147,6 +151,7 @@ func (a *AmazonProvider) TearDown(f *ForgedApplication) error {
 		err := a.Client.DestroyRole(roleName)
 		if err != nil {
 			l.Log.Warnf("Failed to destroy role %v", roleName)
+			errors = append(errors, err)
 		}
 	}
 
@@ -156,8 +161,9 @@ func (a *AmazonProvider) TearDown(f *ForgedApplication) error {
 		err := a.Client.DestroyS3Bucket(bucket)
 		if err != nil {
 			l.Log.Warnf("Failed to destroy s3 bucket %v", bucket)
+			errors = append(errors, err)
 		}
 	}
 
-	return nil
+	return errors
 }

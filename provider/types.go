@@ -30,14 +30,14 @@ type ForgedApplication struct {
 	GUID           string
 }
 
+// MarkCompleted marks a step as completed, storing the passed in hash of data.
+func (f *ForgedApplication) MarkCompleted(name string, data map[string]string) {
+	f.StepsCompleted[name] = data
+}
+
 // SuperKeyProvider the interface for all of the superkey providers
 // currently just a single method is needed (ForgeApplication)
 type SuperKeyProvider interface {
 	ForgeApplication(*SuperKeyRequest) (*ForgedApplication, error)
 	TearDown(*ForgedApplication) error
-}
-
-// MarkCompleted marks a step as completed, storing the passed in hash of data.
-func (f *ForgedApplication) MarkCompleted(name string, data map[string]string) {
-	f.StepsCompleted[name] = data
 }
