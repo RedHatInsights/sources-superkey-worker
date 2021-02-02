@@ -14,23 +14,30 @@ type SuperKeyRequest struct {
 
 // SuperKeyStep - struct representing a step for SuperKey
 type SuperKeyStep struct {
-	Step          int                 `json:"step"`
-	Name          string              `json:"name"`
-	Payload       string              `json:"payload"`
-	Substitutions []map[string]string `json:"substitutions"`
+	Step          int               `json:"step"`
+	Name          string            `json:"name"`
+	Payload       string            `json:"payload"`
+	Substitutions map[string]string `json:"substitutions"`
 }
 
-// ForgedProduct - struct to hold the output of a superkey create_application
+// ForgedApplication - struct to hold the output of a superkey create_application
 // request
-type ForgedProduct struct {
+type ForgedApplication struct {
 	Product        *sources.SuperKeyApp
 	StepsCompleted map[string]map[string]string
 	Request        *SuperKeyRequest
 	Client         SuperKeyProvider
+	GUID           string
 }
 
 // SuperKeyProvider the interface for all of the superkey providers
 // currently just a single method is needed (ForgeApplication)
 type SuperKeyProvider interface {
-	ForgeApplication(*SuperKeyRequest) (*ForgedProduct, error)
+	ForgeApplication(*SuperKeyRequest) (*ForgedApplication, error)
+	TearDown(*ForgedApplication) error
+}
+
+// MarkCompleted marks a step as completed, storing the passed in hash of data.
+func (f *ForgedApplication) MarkCompleted(name string, data map[string]string) {
+	f.StepsCompleted[name] = data
 }

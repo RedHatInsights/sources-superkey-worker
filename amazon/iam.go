@@ -83,7 +83,7 @@ func (a *Client) BindPolicyToRole(policy, role string) error {
 
 // UnBindPolicyToRole - detaches policy (arn) from role (name)
 // returns: error
-func (a *Client) UnBindPolicyToRole(role, policy string) error {
+func (a *Client) UnBindPolicyToRole(policy, role string) error {
 	_, err := a.Iam.DetachRolePolicy(context.Background(), &iam.DetachRolePolicyInput{
 		PolicyArn: &policy,
 		RoleName:  &role,

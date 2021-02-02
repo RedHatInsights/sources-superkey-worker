@@ -7,7 +7,7 @@ import (
 )
 
 // Forge -
-func Forge(request *SuperKeyRequest) (*ForgedProduct, error) {
+func Forge(request *SuperKeyRequest) (*ForgedApplication, error) {
 	client, err := getProvider(request)
 	if err != nil {
 		return nil, err
@@ -44,6 +44,8 @@ func getStepNames(steps []SuperKeyStep) []string {
 }
 
 // TearDown -
-func TearDown(f ForgedProduct) {
-
+func TearDown(f *ForgedApplication) {
+	if f.Client != nil {
+		f.Client.TearDown(f)
+	}
 }
