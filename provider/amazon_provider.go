@@ -80,6 +80,7 @@ func (a *AmazonProvider) ForgeApplication(request *SuperKeyRequest) (*ForgedAppl
 				l.Log.Errorf("Failed to bind policy %v to role arn %v, rolling back superkey request %v", policyArn, roleName, f.Request)
 				return f, err
 			}
+
 			f.MarkCompleted("bind_role", map[string]string{})
 			l.Log.Infof("Successfully bound role %v to policy %v", roleName, policyArn)
 
@@ -90,24 +91,28 @@ func (a *AmazonProvider) ForgeApplication(request *SuperKeyRequest) (*ForgedAppl
 	return f, nil
 }
 
+// generateGUID() generates a short guid for resources
 func generateGUID() string {
 	bytes := make([]byte, 8)
 	rand.Read(bytes)
 	return hex.EncodeToString(bytes)
 }
 
+// getShortName(string) generates a name off of the application type
 func getShortName(name string) string {
 	return fmt.Sprintf("redhat-%s", path.Base(name))
 }
 
 func substiteInPayload(payload string, f *ForgedApplication, substitutions map[string]string) string {
+	// these are some special case substitutions, where `get_account` implies we need to fetch
+	// the account from the payload, and s3 is just the output from the s3 step
 	for name, sub := range substitutions {
 		switch sub {
 		case "get_account":
-			//TODO: get_account from provider
-			payload = strings.Replace(payload, name, sub, 1)
+			accountNumber := f.Request.Extra["account"]
+			payload = strings.Replace(payload, name, accountNumber, -1)
 		case "s3":
-			s3name := f.StepsCompleted["name"]["output"]
+			s3name := f.StepsCompleted["s3"]["output"]
 			payload = strings.Replace(payload, name, s3name, -1)
 		}
 	}
@@ -123,7 +128,9 @@ func substiteInPayload(payload string, f *ForgedApplication, substitutions map[s
 func (a *AmazonProvider) TearDown(f *ForgedApplication) []error {
 	errors := make([]error, 0)
 
+	// -----------------
 	// unbind the role first (if it happened) so we can cleanly delete the policy and the role.
+	// -----------------
 	if f.StepsCompleted["bind_role"] != nil {
 		policyArn := f.StepsCompleted["policy"]["output"]
 		role := f.StepsCompleted["role"]["output"]
@@ -133,8 +140,13 @@ func (a *AmazonProvider) TearDown(f *ForgedApplication) []error {
 			l.Log.Warnf("Failed to unbind policy %v from role %v", policyArn, role)
 			errors = append(errors, err)
 		}
+
+		l.Log.Infof("Un-bound policy %v from role %v", policyArn, role)
 	}
 
+	// -----------------
+	// role/policy can be deleted independently of each other.
+	// -----------------
 	if f.StepsCompleted["policy"] != nil {
 		policyArn := f.StepsCompleted["policy"]["output"]
 
@@ -143,6 +155,8 @@ func (a *AmazonProvider) TearDown(f *ForgedApplication) []error {
 			l.Log.Warnf("Failed to destroy policy %v", policyArn)
 			errors = append(errors, err)
 		}
+
+		l.Log.Infof("Destroyed policy %v", policyArn)
 	}
 
 	if f.StepsCompleted["role"] != nil {
@@ -153,8 +167,14 @@ func (a *AmazonProvider) TearDown(f *ForgedApplication) []error {
 			l.Log.Warnf("Failed to destroy role %v", roleName)
 			errors = append(errors, err)
 		}
+
+		l.Log.Infof("Destroyed role %v", roleName)
 	}
 
+	// -----------------
+	// s3 bucket can probably be deleted earlier, but leave it to last just in case
+	// other things depend on it.
+	// -----------------
 	if f.StepsCompleted["s3"] != nil {
 		bucket := f.StepsCompleted["s3"]["output"]
 
@@ -163,6 +183,8 @@ func (a *AmazonProvider) TearDown(f *ForgedApplication) []error {
 			l.Log.Warnf("Failed to destroy s3 bucket %v", bucket)
 			errors = append(errors, err)
 		}
+
+		l.Log.Infof("Destroyed s3 bucket %v", bucket)
 	}
 
 	return errors

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/redhatinsights/sources-superkey-worker/amazon"
+	"github.com/redhatinsights/sources-superkey-worker/sources"
 )
 
 // Forge -
@@ -20,10 +21,19 @@ func Forge(request *SuperKeyRequest) (*ForgedApplication, error) {
 }
 
 func getProvider(request *SuperKeyRequest) (SuperKeyProvider, error) {
+	auth, err := sources.GetInternalAuthentication(request.TenantID, request.AuthenticationID)
+	if err != nil {
+		return nil, err
+	}
+
 	switch request.Provider {
 	case "amazon":
-		//TODO: fetch creds from sources api
-		client, err := amazon.NewClient("asdf", "asdf", getStepNames(request.SuperKeySteps)...)
+		// client, err := amazon.NewClient(os.Getenv("AWS_ACCESS"), os.Getenv("AWS_SECRET"), getStepNames(request.SuperKeySteps)...)
+		client, err := amazon.NewClient(
+			*auth.Username,
+			*auth.Password,
+			getStepNames(request.SuperKeySteps)...,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -43,9 +53,12 @@ func getStepNames(steps []SuperKeyStep) []string {
 	return names
 }
 
-// TearDown -
-func TearDown(f *ForgedApplication) {
+// TearDown - tears down application that was forged
+// returns: array of errors if any were returned.
+func TearDown(f *ForgedApplication) []error {
 	if f.Client != nil {
-		f.Client.TearDown(f)
+		return f.Client.TearDown(f)
 	}
+
+	return []error{}
 }

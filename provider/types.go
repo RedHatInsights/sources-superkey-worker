@@ -6,10 +6,12 @@ import (
 
 // SuperKeyRequest - struct representing a request for a superkey
 type SuperKeyRequest struct {
-	TenantID        string         `json:"tenant_id"`
-	Provider        string         `json:"provider"`
-	ApplicationType string         `json:"application_type"`
-	SuperKeySteps   []SuperKeyStep `json:"superkey_steps"`
+	TenantID         string            `json:"tenant_id"`
+	AuthenticationID string            `json:"authentication_id"`
+	Provider         string            `json:"provider"`
+	ApplicationType  string            `json:"application_type"`
+	Extra            map[string]string `json:"extra"`
+	SuperKeySteps    []SuperKeyStep    `json:"superkey_steps"`
 }
 
 // SuperKeyStep - struct representing a step for SuperKey
@@ -39,5 +41,5 @@ func (f *ForgedApplication) MarkCompleted(name string, data map[string]string) {
 // currently just a single method is needed (ForgeApplication)
 type SuperKeyProvider interface {
 	ForgeApplication(*SuperKeyRequest) (*ForgedApplication, error)
-	TearDown(*ForgedApplication) error
+	TearDown(*ForgedApplication) []error
 }
