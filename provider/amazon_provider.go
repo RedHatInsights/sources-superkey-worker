@@ -9,6 +9,7 @@ import (
 
 	"github.com/redhatinsights/sources-superkey-worker/amazon"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
+	"github.com/redhatinsights/sources-superkey-worker/superkey"
 )
 
 // AmazonProvider struct for implementing the Amazon Provider interface
@@ -19,10 +20,10 @@ type AmazonProvider struct {
 // ForgeApplication transforms a superkey request with the amazon provider into a list
 // of resources required for the application, specified by the request.
 // returns: the new forged application payload with info on what was processed, in case something went wrong.
-func (a *AmazonProvider) ForgeApplication(request *SuperKeyRequest) (*ForgedApplication, error) {
-	f := &ForgedApplication{
-		Request:        request,
+func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*superkey.ForgedApplication, error) {
+	f := &superkey.ForgedApplication{
 		StepsCompleted: make(map[string]map[string]string),
+		Request:        request,
 		Client:         a,
 		GUID:           generateGUID(),
 	}
@@ -61,13 +62,14 @@ func (a *AmazonProvider) ForgeApplication(request *SuperKeyRequest) (*ForgedAppl
 			payload := substiteInPayload(step.Payload, f, step.Substitutions)
 			l.Log.Infof("Creating Role %v", name)
 
-			err := a.Client.CreateRole(name, payload)
+			roleArn, err := a.Client.CreateRole(name, payload)
 			if err != nil {
 				l.Log.Error("Failed to create Role %v, rolling back superkey request %v", name, f.Request)
 				return f, err
 			}
 
-			f.MarkCompleted("role", map[string]string{"output": name})
+			// Store the Role ARN since that is what we need to return for the Authentication object.
+			f.MarkCompleted("role", map[string]string{"output": name, "arn": *roleArn})
 			l.Log.Infof("Successfully created role %v", name)
 
 		case "bind_role":
@@ -88,6 +90,13 @@ func (a *AmazonProvider) ForgeApplication(request *SuperKeyRequest) (*ForgedAppl
 			l.Log.Infof("%v not implemented yet!", step.Name)
 		}
 	}
+
+	// Set the username to the role ARN since that is what is needed for this provider.
+	username := f.StepsCompleted["role"]["arn"]
+	appType := path.Base(f.Request.ApplicationType)
+	// Create the payload struct
+	f.CreatePayload(&username, nil, &appType)
+
 	return f, nil
 }
 
@@ -103,7 +112,7 @@ func getShortName(name string) string {
 	return fmt.Sprintf("redhat-%s", path.Base(name))
 }
 
-func substiteInPayload(payload string, f *ForgedApplication, substitutions map[string]string) string {
+func substiteInPayload(payload string, f *superkey.ForgedApplication, substitutions map[string]string) string {
 	// these are some special case substitutions, where `get_account` implies we need to fetch
 	// the account from the payload, and s3 is just the output from the s3 step
 	for name, sub := range substitutions {
@@ -125,7 +134,7 @@ func substiteInPayload(payload string, f *ForgedApplication, substitutions map[s
 //
 // Basically the StepsCompleted field keeps track of what parts of the forge operation
 // went smoothly, and we just go through them in reverse and handle them.
-func (a *AmazonProvider) TearDown(f *ForgedApplication) []error {
+func (a *AmazonProvider) TearDown(f *superkey.ForgedApplication) []error {
 	errors := make([]error, 0)
 
 	// -----------------
