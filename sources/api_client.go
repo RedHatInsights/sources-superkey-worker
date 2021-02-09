@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"strings"
 
-	sapi "github.com/lindgrenj6/sources-api-client-go"
+	sourcesapi "github.com/lindgrenj6/sources-api-client-go"
 	"github.com/redhatinsights/sources-superkey-worker/config"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 )
@@ -19,12 +19,12 @@ var xRhIdentity = `{"identity": {"account_number": "$ACCT$", "user": {"is_org_ad
 
 // NewAPIClient - creates a sources api client with default header for account
 // returns: Sources API Client
-func NewAPIClient(acct string) *sapi.APIClient {
+func NewAPIClient(acct string) *sourcesapi.APIClient {
 	conf := config.Get()
 
-	return sapi.NewAPIClient(&sapi.Configuration{
+	return sourcesapi.NewAPIClient(&sourcesapi.Configuration{
 		DefaultHeader: map[string]string{"x-rh-identity": encodedIdentity(acct)},
-		Servers: []sapi.ServerConfiguration{
+		Servers: []sourcesapi.ServerConfiguration{
 			{
 				URL: fmt.Sprintf("%s://%s:%d/api/sources/v3.1", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort),
 			},
@@ -35,7 +35,7 @@ func NewAPIClient(acct string) *sapi.APIClient {
 // GetInternalAuthentication requests an authentication via the internal sources api
 // that way we can expose the password.
 // returns: populated sources api Authentication object, error
-func GetInternalAuthentication(tenant, authID string) (*sapi.Authentication, error) {
+func GetInternalAuthentication(tenant, authID string) (*sourcesapi.Authentication, error) {
 	conf := config.Get()
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
@@ -61,7 +61,7 @@ func GetInternalAuthentication(tenant, authID string) (*sapi.Authentication, err
 	defer res.Body.Close()
 
 	data, _ := ioutil.ReadAll(res.Body)
-	auth := sapi.Authentication{}
+	auth := sourcesapi.Authentication{}
 
 	// unmarshaling the data from the request, the id comes back as a string which fills `err`
 	// we can safely ignore that as long as username/pass are there.
