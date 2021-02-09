@@ -6,6 +6,7 @@ import (
 
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/provider"
+	"github.com/redhatinsights/sources-superkey-worker/superkey"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -17,7 +18,7 @@ func ProcessSuperkeyRequest(msg kafka.Message) {
 	case "create_application":
 		l.Log.Info("Processing `create_application` request")
 
-		req, err := parseRequest(msg.Value)
+		req, err := parseSuperKeyRequest(msg.Value)
 		if err != nil {
 			l.Log.Warnf("Error parsing request: %v", err)
 			return
@@ -29,10 +30,24 @@ func ProcessSuperkeyRequest(msg kafka.Message) {
 		if err != nil {
 			l.Log.Errorf("Error forging request %v, error: %v", req, err)
 			l.Log.Errorf("Tearing down superkey request %v", req)
-			provider.TearDown(newApp)
+
+			errors := provider.TearDown(newApp)
+			if len(errors) != 0 {
+				for _, err := range errors {
+					l.Log.Errorf("Error during teardown: %v", err)
+				}
+			}
+
 			return
 		}
 		l.Log.Infof("Finished Forging request: %v", req)
+
+		err = newApp.CreateInSourcesAPI()
+		if err != nil {
+			l.Log.Errorf("Failed to POST req to sources-api: %v, tearing down.", req)
+			provider.TearDown(newApp)
+		}
+
 		l.Log.Infof("Finished processing `create_application` request for tenant %v type %v", req.TenantID, req.ApplicationType)
 
 	case "delete_application":
@@ -44,10 +59,10 @@ func ProcessSuperkeyRequest(msg kafka.Message) {
 	}
 }
 
-// parseRequest - parses a kafka message's value ([]byte) into a Request struct
+// parseSuperKeyRequest - parses a kafka message's value ([]byte) into a Request struct
 // returns: *Request
-func parseRequest(value []byte) (*provider.SuperKeyRequest, error) {
-	request := provider.SuperKeyRequest{}
+func parseSuperKeyRequest(value []byte) (*superkey.CreateRequest, error) {
+	request := superkey.CreateRequest{}
 	err := json.Unmarshal(value, &request)
 	if err != nil {
 		return nil, err

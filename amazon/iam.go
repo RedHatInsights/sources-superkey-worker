@@ -8,17 +8,17 @@ import (
 
 // CreateRole - creates a role with name from a json payload
 // returns: error
-func (a *Client) CreateRole(name, payload string) error {
-	_, err := a.Iam.CreateRole(context.Background(), &iam.CreateRoleInput{
+func (a *Client) CreateRole(name, payload string) (*string, error) {
+	iamRole, err := a.Iam.CreateRole(context.Background(), &iam.CreateRoleInput{
 		AssumeRolePolicyDocument: &payload,
 		RoleName:                 &name,
 	})
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return iamRole.Role.Arn, nil
 }
 
 // DestroyRole - destroys a role with name
