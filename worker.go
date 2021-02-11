@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/provider"
@@ -18,13 +17,12 @@ func ProcessSuperkeyRequest(msg kafka.Message) {
 	case "create_application":
 		l.Log.Info("Processing `create_application` request")
 
-		req, err := parseSuperKeyRequest(msg.Value)
+		req, err := parseSuperKeyCreateRequest(msg.Value)
 		if err != nil {
 			l.Log.Warnf("Error parsing request: %v", err)
 			return
 		}
 
-		fmt.Printf("%v\n", req)
 		l.Log.Infof("Forging request: %v", req)
 		newApp, err := provider.Forge(req)
 		if err != nil {
@@ -50,19 +48,41 @@ func ProcessSuperkeyRequest(msg kafka.Message) {
 
 		l.Log.Infof("Finished processing `create_application` request for tenant %v type %v", req.TenantID, req.ApplicationType)
 
-	case "delete_application":
-		// TODO: teardown
-		l.Log.Warn("delete_application not implemented yet")
+	case "destroy_application":
+		l.Log.Info("Processing `destroy_application` request")
+		req, err := parseSuperKeyDestroyRequest(msg.Value)
+		if err != nil {
+			l.Log.Warnf("Error parsing request: %v", err)
+			return
+		}
+
+		l.Log.Infof("Un-Forging request: %v", req)
+		errors := provider.TearDown(superkey.ReconstructForgedApplication(req))
+		if len(errors) != 0 {
+			for _, err := range errors {
+				l.Log.Errorf("Error during teardown: %v", err)
+			}
+		}
+
+		l.Log.Infof("Finished processing `destroy_application` request for GUID %v")
 
 	default:
 		l.Log.Warn("Unknown event_type")
 	}
 }
 
-// parseSuperKeyRequest - parses a kafka message's value ([]byte) into a Request struct
-// returns: *Request
-func parseSuperKeyRequest(value []byte) (*superkey.CreateRequest, error) {
+func parseSuperKeyCreateRequest(value []byte) (*superkey.CreateRequest, error) {
 	request := superkey.CreateRequest{}
+	err := json.Unmarshal(value, &request)
+	if err != nil {
+		return nil, err
+	}
+
+	return &request, nil
+}
+
+func parseSuperKeyDestroyRequest(value []byte) (*superkey.DestroyRequest, error) {
+	request := superkey.DestroyRequest{}
 	err := json.Unmarshal(value, &request)
 	if err != nil {
 		return nil, err

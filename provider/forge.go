@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	"github.com/redhatinsights/sources-superkey-worker/amazon"
+	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/sources"
 	"github.com/redhatinsights/sources-superkey-worker/superkey"
 )
 
-// Forge -
+// Forge - creates the provider client based on provider and forges resources
 func Forge(request *superkey.CreateRequest) (*superkey.ForgedApplication, error) {
 	client, err := getProvider(request)
 	if err != nil {
@@ -21,9 +22,27 @@ func Forge(request *superkey.CreateRequest) (*superkey.ForgedApplication, error)
 	return f, err
 }
 
+// TearDown - tears down application that was forged
+// returns: array of errors if any were returned.
+func TearDown(f *superkey.ForgedApplication) []error {
+	// the client is nil if it came from a destroy request
+	if f.Client == nil {
+		client, err := getProvider(f.Request)
+		if err != nil {
+			return []error{err}
+		}
+
+		f.Client = client
+	}
+
+	return f.Client.TearDown(f)
+}
+
+// getProvider returns a provider based on create request's provider + credentials
 func getProvider(request *superkey.CreateRequest) (superkey.Provider, error) {
-	auth, err := sources.GetInternalAuthentication(request.TenantID, request.AuthenticationID)
+	auth, err := sources.GetInternalAuthentication(request.TenantID, request.SuperKey)
 	if err != nil {
+		l.Log.Errorf("Failed to get superkey credentials for %v, auth id %v", request.TenantID, request.SuperKey)
 		return nil, err
 	}
 
@@ -52,14 +71,4 @@ func getStepNames(steps []superkey.Step) []string {
 	}
 
 	return names
-}
-
-// TearDown - tears down application that was forged
-// returns: array of errors if any were returned.
-func TearDown(f *superkey.ForgedApplication) []error {
-	if f.Client != nil {
-		return f.Client.TearDown(f)
-	}
-
-	return []error{}
 }

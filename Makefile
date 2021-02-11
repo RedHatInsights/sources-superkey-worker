@@ -4,7 +4,7 @@ build:
 	go build .
 
 clean:
-	rm sources-superkey-worker 
+	rm sources-superkey-worker
 
 container:
 	docker build . -t sources-superkey-worker -f Containerfile
