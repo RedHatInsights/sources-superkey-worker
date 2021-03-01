@@ -15,7 +15,7 @@ require (
 	github.com/gopherjs/gopherjs v0.0.0-20210202160940-bed99a852dfe // indirect
 	github.com/klauspost/compress v1.11.7 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/lindgrenj6/sources-api-client-go v0.0.0-20210208213119-f8c85ca5cb90
+	github.com/lindgrenj6/sources-api-client-go v0.0.0-20210215174124-caba6974c015
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/pelletier/go-toml v1.8.1 // indirect
