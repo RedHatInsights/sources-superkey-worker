@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/viper"
@@ -26,7 +27,7 @@ type SuperKeyWorkerConfig struct {
 func Get() *SuperKeyWorkerConfig {
 	options := viper.New()
 
-	options.SetDefault("KafkaBrokers", []string{"localhost:9092"})
+	options.SetDefault("KafkaBrokers", []string{fmt.Sprintf("%v:%v", os.Getenv("QUEUE_HOST"), os.Getenv("QUEUE_PORT"))})
 	options.SetDefault("KafkaGroupID", "sources-superkey-worker")
 	options.SetDefault("MetricsPort", 9394)
 	options.SetDefault("LogLevel", "INFO")
