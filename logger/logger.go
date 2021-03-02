@@ -45,13 +45,13 @@ func (f *CustomCloudwatch) Format(entry *logrus.Entry) ([]byte, error) {
 	}
 
 	data := map[string]interface{}{
-		"@timestamp":  now.Format("2006-01-02T15:04:05.999Z"),
-		"@version":    1,
-		"message":     entry.Message,
-		"levelname":   entry.Level.String(),
-		"source_host": f.Hostname,
-		"app":         "sources-superkey-worker",
-		"caller":      entry.Caller.Func.Name(),
+		"@timestamp": now.Format("2006-01-02T15:04:05.999Z"),
+		"@version":   1,
+		"message":    entry.Message,
+		"levelname":  entry.Level.String(),
+		"hostname":   f.Hostname,
+		"app":        "sources-superkey-worker",
+		"caller":     entry.Caller.Func.Name(),
 	}
 
 	for k, v := range entry.Data {
@@ -80,7 +80,7 @@ func InitLogger() *logrus.Logger {
 	cfg := appconf.Get()
 	logconfig := viper.New()
 
-	key := cfg.AwsAccessKeyId
+	key := cfg.AwsAccessKeyID
 	secret := cfg.AwsSecretAccessKey
 	region := cfg.AwsRegion
 	group := cfg.LogGroup
@@ -113,7 +113,7 @@ func InitLogger() *logrus.Logger {
 	// TODO: maybe redo this to work with the go-aws-v2 library.
 	// That would involve updating the platform middleware though, which might
 	// not be fun.
-	if key != "" {
+	if key != "" && secret != "" {
 		cred := credentials.NewStaticCredentials(key, secret, "")
 		awsconf := aws.NewConfig().WithRegion(region).WithCredentials(cred)
 		hook, err := lc.NewBatchingHook(group, stream, awsconf, 10*time.Second)
