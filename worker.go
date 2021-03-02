@@ -2,11 +2,19 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/provider"
 	"github.com/redhatinsights/sources-superkey-worker/superkey"
 	"github.com/segmentio/kafka-go"
+)
+
+var (
+	// DisableCreation disabled processing `create_application` sk requests
+	DisableCreation = os.Getenv("DISABLE_RESOURCE_CREATION")
+	// DisableDeletion disabled processing `destroy_application` sk requests
+	DisableDeletion = os.Getenv("DISABLE_RESOURCE_DELETION")
 )
 
 // ProcessSuperkeyRequest - processes messages.
@@ -15,6 +23,11 @@ func ProcessSuperkeyRequest(msg kafka.Message) {
 
 	switch eventType {
 	case "create_application":
+		if DisableCreation == "true" {
+			l.Log.Infof("Skipping create_application request: %v", msg.Value)
+			return
+		}
+
 		l.Log.Info("Processing `create_application` request")
 
 		req, err := parseSuperKeyCreateRequest(msg.Value)
@@ -49,6 +62,11 @@ func ProcessSuperkeyRequest(msg kafka.Message) {
 		l.Log.Infof("Finished processing `create_application` request for tenant %v type %v", req.TenantID, req.ApplicationType)
 
 	case "destroy_application":
+		if DisableDeletion == "true" {
+			l.Log.Infof("Skipping destroy_application request: %v", msg.Value)
+			return
+		}
+
 		l.Log.Info("Processing `destroy_application` request")
 		req, err := parseSuperKeyDestroyRequest(msg.Value)
 		if err != nil {
