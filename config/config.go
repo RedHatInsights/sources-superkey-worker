@@ -15,7 +15,7 @@ type SuperKeyWorkerConfig struct {
 	LogLevel           string
 	LogGroup           string
 	AwsRegion          string
-	AwsAccessKeyId     string
+	AwsAccessKeyID     string
 	AwsSecretAccessKey string
 	SourcesHost        string
 	SourcesScheme      string
@@ -51,8 +51,8 @@ func Get() *SuperKeyWorkerConfig {
 		LogLevel:           options.GetString("LogLevel"),
 		LogGroup:           options.GetString("LogGroup"),
 		AwsRegion:          options.GetString("AwsRegion"),
-		AwsAccessKeyId:     options.GetString("AwsAccessKeyID"),
-		AwsSecretAccessKey: options.GetString("AwsSecretAcessKey"),
+		AwsAccessKeyID:     options.GetString("AwsAccessKeyID"),
+		AwsSecretAccessKey: options.GetString("AwsSecretAccessKey"),
 		SourcesHost:        options.GetString("SourcesHost"),
 		SourcesScheme:      options.GetString("SourcesScheme"),
 		SourcesPort:        options.GetInt("SourcesPort"),
