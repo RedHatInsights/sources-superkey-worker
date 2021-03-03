@@ -35,9 +35,9 @@ func Get() *SuperKeyWorkerConfig {
 	options.SetDefault("AwsRegion", "us-east-1")
 	options.SetDefault("AwsAccessKeyId", os.Getenv("CW_AWS_ACCESS_KEY_ID"))
 	options.SetDefault("AwsSecretAccessKey", os.Getenv("CW_AWS_SECRET_ACCESS_KEY"))
-	options.SetDefault("SourcesHost", "localhost")
-	options.SetDefault("SourcesScheme", "http")
-	options.SetDefault("SourcesPort", 3002)
+	options.SetDefault("SourcesHost", os.Getenv("SOURCES_HOST"))
+	options.SetDefault("SourcesScheme", os.Getenv("SOURCES_SCHEME"))
+	options.SetDefault("SourcesPort", os.Getenv("SOURCES_PORT"))
 
 	hostname, _ := os.Hostname()
 	options.SetDefault("Hostname", hostname)
