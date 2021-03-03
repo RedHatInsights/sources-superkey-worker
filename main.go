@@ -97,6 +97,11 @@ func createResources(req *superkey.CreateRequest) {
 			}
 		}
 
+		err := newApp.MarkSourceUnavailable(err)
+		if err != nil {
+			l.Log.Errorf("Error during PATCH unavailable to application/source: %v", err)
+		}
+
 		return
 	}
 	l.Log.Infof("Finished Forging request: %v", req)
