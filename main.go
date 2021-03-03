@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
+	"github.com/redhatinsights/sources-superkey-worker/config"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/messaging"
 	"github.com/redhatinsights/sources-superkey-worker/provider"
@@ -19,10 +21,16 @@ var (
 	DisableCreation = os.Getenv("DISABLE_RESOURCE_CREATION")
 	// DisableDeletion disabled processing `destroy_application` sk requests
 	DisableDeletion = os.Getenv("DISABLE_RESOURCE_DELETION")
+
+	conf = config.Get()
 )
 
 func main() {
-	l.InitLogger()
+	l.InitLogger(conf)
+
+	l.Log.Infof("Listening to Kafka at: %v", conf.KafkaBrokers)
+	l.Log.Infof("Talking to Sources API at: %v", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort))
+
 	l.Log.Info("SuperKey Worker started.")
 
 	// anonymous function, kinda like passing a block in ruby.
@@ -45,7 +53,6 @@ func processSuperkeyRequest(msg kafka.Message) {
 		}
 
 		l.Log.Info("Processing `create_application` request")
-
 		req, err := parseSuperKeyCreateRequest(msg.Value)
 		if err != nil {
 			l.Log.Warnf("Error parsing request: %v", err)
@@ -69,7 +76,7 @@ func processSuperkeyRequest(msg kafka.Message) {
 		}
 
 		destroyResources(req)
-		l.Log.Infof("Finished processing `destroy_application` request for GUID %v")
+		l.Log.Infof("Finished processing `destroy_application` request for GUID %v", req.GUID)
 
 	default:
 		l.Log.Warn("Unknown event_type")

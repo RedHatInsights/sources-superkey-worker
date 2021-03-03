@@ -76,8 +76,7 @@ func (f *CustomCloudwatch) Format(entry *logrus.Entry) ([]byte, error) {
 }
 
 // InitLogger initializes the Sources SuperKey logger
-func InitLogger() *logrus.Logger {
-	cfg := appconf.Get()
+func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 	logconfig := viper.New()
 
 	key := cfg.AwsAccessKeyID
