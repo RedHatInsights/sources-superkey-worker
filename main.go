@@ -97,7 +97,7 @@ func createResources(req *superkey.CreateRequest) {
 			}
 		}
 
-		err := newApp.MarkSourceUnavailable(err)
+		err := req.MarkSourceUnavailable(err, newApp)
 		if err != nil {
 			l.Log.Errorf("Error during PATCH unavailable to application/source: %v", err)
 		}
