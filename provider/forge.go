@@ -25,6 +25,10 @@ func Forge(request *superkey.CreateRequest) (*superkey.ForgedApplication, error)
 // TearDown - tears down application that was forged
 // returns: array of errors if any were returned.
 func TearDown(f *superkey.ForgedApplication) []error {
+	if f == nil {
+		return []error{}
+	}
+
 	// the client is nil if it came from a destroy request
 	if f.Client == nil {
 		client, err := getProvider(f.Request)

@@ -3,6 +3,9 @@ all: build
 build:
 	go build .
 
+debug:
+	go build . && dlv debug
+
 clean:
 	rm sources-superkey-worker
 
@@ -18,4 +21,4 @@ fancyrun: build
 runcontainer: container
 	docker run -ti --rm --net host -e KAFKA_BROKERS=localhost:9092 sources-superkey-worker
 
-.PHONY: build container run fancyrun runcontainer clean
+.PHONY: build container run fancyrun runcontainer clean debug

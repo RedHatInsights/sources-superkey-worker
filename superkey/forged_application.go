@@ -2,7 +2,6 @@ package superkey
 
 import (
 	"context"
-	"fmt"
 
 	sourcesapi "github.com/lindgrenj6/sources-api-client-go"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
@@ -41,6 +40,10 @@ func (f *ForgedApplication) CreateInSourcesAPI() error {
 	if err != nil {
 		return err
 	}
+	err = f.checkAvailability(client)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -73,38 +76,12 @@ func (f *ForgedApplication) storeSuperKeyData(client *sourcesapi.APIClient) erro
 	return nil
 }
 
-// MarkSourceUnavailable marks the application and source as unavailable, while
-// also marking the application's availability_status_error to what AWS updated
-// us with.
-func (f *ForgedApplication) MarkSourceUnavailable(err error) error {
-	client := sources.NewAPIClient(f.Request.TenantID)
-	availabilityStatus := "unavailable"
-	availabilityStatusError := fmt.Sprintf("Resource Creation erorr: failed to create resources in amazon, error: %v", err)
-	extra := f.applicationExtraPayload()
+func (f *ForgedApplication) checkAvailability(client *sourcesapi.APIClient) error {
+	request := client.DefaultApi.CheckAvailabilitySource(context.Background(), f.Product.SourceID)
+	r, err := request.Execute()
 
-	appRequest := client.DefaultApi.UpdateApplication(context.Background(), f.Request.ApplicationID)
-	appRequest = appRequest.Application(
-		sourcesapi.Application{
-			AvailabilityStatus:      &availabilityStatus,
-			AvailabilityStatusError: &availabilityStatusError,
-			Extra:                   &extra,
-		},
-	)
-
-	r, err := appRequest.Execute()
-	if r == nil || r.StatusCode != 204 {
-		l.Log.Errorf("Failed to update application with error message %v", err)
-		return err
-	}
-
-	srcRequest := client.DefaultApi.UpdateSource(context.Background(), f.Request.SourceID)
-	srcRequest = srcRequest.Source(
-		sourcesapi.Source{AvailabilityStatus: &availabilityStatus},
-	)
-
-	r, err = srcRequest.Execute()
-	if r == nil || r.StatusCode != 204 {
-		l.Log.Errorf("Failed to update source with error message %v", err)
+	if r == nil || r.StatusCode != 202 {
+		l.Log.Errorf("Failed to check Source availability: %v", err)
 		return err
 	}
 
