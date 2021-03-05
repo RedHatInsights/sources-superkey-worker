@@ -24,6 +24,7 @@ func (req *CreateRequest) MarkSourceUnavailable(err error, newApplication *Forge
 		extra = newApplication.applicationExtraPayload()
 	}
 
+	l.Log.Infof("Marking Application %v Unavailable with message: %v", req.ApplicationID, availabilityStatusError)
 	appRequest := client.DefaultApi.UpdateApplication(context.Background(), req.ApplicationID)
 	appRequest = appRequest.Application(
 		sourcesapi.Application{
@@ -39,16 +40,6 @@ func (req *CreateRequest) MarkSourceUnavailable(err error, newApplication *Forge
 		return err
 	}
 
-	srcRequest := client.DefaultApi.UpdateSource(context.Background(), req.SourceID)
-	srcRequest = srcRequest.Source(
-		sourcesapi.Source{AvailabilityStatus: &availabilityStatus},
-	)
-
-	r, err = srcRequest.Execute()
-	if r == nil || r.StatusCode != 204 {
-		l.Log.Errorf("Failed to update source with error message %v", err)
-		return err
-	}
-
+	l.Log.Infof("Finished Marking Source %v + Application %v Unavailable", req.SourceID, req.ApplicationID)
 	return nil
 }

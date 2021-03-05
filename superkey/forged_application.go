@@ -32,6 +32,7 @@ func (f *ForgedApplication) MarkCompleted(name string, data map[string]string) {
 func (f *ForgedApplication) CreateInSourcesAPI() error {
 	client := sources.NewAPIClient(f.Request.TenantID)
 
+	l.Log.Infof("Posting resources back to Sources API: %v", f)
 	err := f.createAuthentications(client)
 	if err != nil {
 		return err
@@ -45,6 +46,7 @@ func (f *ForgedApplication) CreateInSourcesAPI() error {
 		return err
 	}
 
+	l.Log.Infof("Finished posting resources back to Sources API: %v", f)
 	return nil
 }
 
