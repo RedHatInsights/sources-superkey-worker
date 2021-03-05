@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	sourcesapi "github.com/lindgrenj6/sources-api-client-go"
 	"github.com/redhatinsights/sources-superkey-worker/config"
@@ -37,6 +38,7 @@ func NewAPIClient(acct string) *sourcesapi.APIClient {
 // returns: populated sources api Authentication object, error
 func GetInternalAuthentication(tenant, authID string) (*sourcesapi.Authentication, error) {
 	conf := config.Get()
+	l.Log.Infof("Requesting SuperKey Authentication: %v", authID)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
 		"http://%v:%v/internal/v1.0/authentications/%v?expose_encrypted_attribute[]=password",
@@ -53,12 +55,24 @@ func GetInternalAuthentication(tenant, authID string) (*sourcesapi.Authenticatio
 		},
 	}
 
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		l.Log.Warnf("Error getting authentication: %v, tenant: %v, error: %v", authID, tenant, err)
-		return nil, err
+	var res *http.Response
+	var err error
+	for retry := 0; retry < 5; retry++ {
+		res, err = http.DefaultClient.Do(req)
+
+		if res.StatusCode == 200 {
+			break
+		} else {
+			l.Log.Warnf("Authentication %v unavailable, retrying...", authID)
+			time.Sleep(3 * time.Second)
+		}
 	}
+
 	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		l.Log.Warnf("Error getting authentication: %v, tenant: %v", authID, tenant)
+		return nil, fmt.Errorf("Failed to get Authentication %v", authID)
+	}
 
 	data, _ := ioutil.ReadAll(res.Body)
 	auth := sourcesapi.Authentication{}
@@ -71,6 +85,7 @@ func GetInternalAuthentication(tenant, authID string) (*sourcesapi.Authenticatio
 		return nil, err
 	}
 
+	l.Log.Infof("Authentication %v found!", authID)
 	return &auth, nil
 }
 
