@@ -40,6 +40,18 @@ func (req *CreateRequest) MarkSourceUnavailable(err error, newApplication *Forge
 		return err
 	}
 
+	l.Log.Infof("Marking Source %v Unavailable", req.SourceID)
+	srcRequest := client.DefaultApi.UpdateSource(context.Background(), req.SourceID)
+	srcRequest = srcRequest.Source(
+		sourcesapi.Source{AvailabilityStatus: &availabilityStatus},
+	)
+
+	r, err = srcRequest.Execute()
+	if r == nil || r.StatusCode != 204 {
+		l.Log.Errorf("Failed to update source with error message %v", err)
+		return err
+	}
+
 	l.Log.Infof("Finished Marking Source %v + Application %v Unavailable", req.SourceID, req.ApplicationID)
 	return nil
 }
