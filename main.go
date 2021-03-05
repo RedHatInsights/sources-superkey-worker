@@ -33,6 +33,7 @@ func main() {
 
 	l.Log.Info("SuperKey Worker started.")
 
+	// TODO: return SuperKeyRequestQueue from config
 	// anonymous function, kinda like passing a block in ruby.
 	messaging.ConsumeWithFunction(SuperKeyRequestQueue, func(msg kafka.Message) {
 		l.Log.Infof("Started processing message %s", string(msg.Value))

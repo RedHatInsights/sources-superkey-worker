@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	clowder "github.com/redhatinsights/app-common-go/pkg/api/v1"
+
 	"github.com/spf13/viper"
 )
 
@@ -27,14 +29,28 @@ type SuperKeyWorkerConfig struct {
 func Get() *SuperKeyWorkerConfig {
 	options := viper.New()
 
-	options.SetDefault("KafkaBrokers", []string{fmt.Sprintf("%v:%v", os.Getenv("QUEUE_HOST"), os.Getenv("QUEUE_PORT"))})
+	if clowder.IsClowderEnabled() {
+		cfg := clowder.LoadedConfig
+		options.SetDefault("AwsRegion", cfg.Logging.Cloudwatch.Region)
+		options.SetDefault("AwsAccessKeyId", cfg.Logging.Cloudwatch.AccessKeyId)
+		options.SetDefault("AwsSecretAccessKey", cfg.Logging.Cloudwatch.SecretAccessKey)
+		options.SetDefault("KafkaBrokers", []string{fmt.Sprintf("%s:%v", cfg.Kafka.Brokers[0].Hostname, *cfg.Kafka.Brokers[0].Port)})
+		options.SetDefault("LogGroup", cfg.Logging.Cloudwatch.LogGroup)
+		options.SetDefault("MetricsPort", cfg.MetricsPort)
+
+	} else {
+		options.SetDefault("AwsRegion", "us-east-1")
+		options.SetDefault("AwsAccessKeyId", os.Getenv("CW_AWS_ACCESS_KEY_ID"))
+		options.SetDefault("AwsSecretAccessKey", os.Getenv("CW_AWS_SECRET_ACCESS_KEY"))
+		options.SetDefault("KafkaBrokers", []string{fmt.Sprintf("%v:%v", os.Getenv("QUEUE_HOST"), os.Getenv("QUEUE_PORT"))})
+		options.SetDefault("LogGroup", os.Getenv("CLOUD_WATCH_LOG_GROUP"))
+		options.SetDefault("MetricsPort", 9394)
+
+	}
+
 	options.SetDefault("KafkaGroupID", "sources-superkey-worker")
-	options.SetDefault("MetricsPort", 9394)
 	options.SetDefault("LogLevel", "INFO")
-	options.SetDefault("LogGroup", os.Getenv("CLOUD_WATCH_LOG_GROUP"))
-	options.SetDefault("AwsRegion", "us-east-1")
-	options.SetDefault("AwsAccessKeyId", os.Getenv("CW_AWS_ACCESS_KEY_ID"))
-	options.SetDefault("AwsSecretAccessKey", os.Getenv("CW_AWS_SECRET_ACCESS_KEY"))
+
 	options.SetDefault("SourcesHost", os.Getenv("SOURCES_HOST"))
 	options.SetDefault("SourcesScheme", os.Getenv("SOURCES_SCHEME"))
 	options.SetDefault("SourcesPort", os.Getenv("SOURCES_PORT"))
