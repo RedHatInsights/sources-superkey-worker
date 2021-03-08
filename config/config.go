@@ -13,6 +13,7 @@ import (
 type SuperKeyWorkerConfig struct {
 	Hostname           string
 	KafkaBrokers       []string
+	KafkaTopics        map[string]string
 	KafkaGroupID       string
 	MetricsPort        int
 	LogLevel           string
@@ -28,9 +29,14 @@ type SuperKeyWorkerConfig struct {
 // Get - returns the config parsed from runtime vars
 func Get() *SuperKeyWorkerConfig {
 	options := viper.New()
+	kafkaTopics := make(map[string]string)
 
 	if clowder.IsClowderEnabled() {
 		cfg := clowder.LoadedConfig
+
+		for requestedName, topicConfig := range clowder.KafkaTopics {
+			kafkaTopics[requestedName] = topicConfig.Name
+		}
 		options.SetDefault("AwsRegion", cfg.Logging.Cloudwatch.Region)
 		options.SetDefault("AwsAccessKeyId", cfg.Logging.Cloudwatch.AccessKeyId)
 		options.SetDefault("AwsSecretAccessKey", cfg.Logging.Cloudwatch.SecretAccessKey)
@@ -49,6 +55,7 @@ func Get() *SuperKeyWorkerConfig {
 	}
 
 	options.SetDefault("KafkaGroupID", "sources-superkey-worker")
+	options.SetDefault("KafkaTopics", kafkaTopics)
 	options.SetDefault("LogLevel", "INFO")
 
 	options.SetDefault("SourcesHost", os.Getenv("SOURCES_HOST"))
@@ -63,6 +70,7 @@ func Get() *SuperKeyWorkerConfig {
 	return &SuperKeyWorkerConfig{
 		Hostname:           options.GetString("Hostname"),
 		KafkaBrokers:       options.GetStringSlice("KafkaBrokers"),
+		KafkaTopics:        options.GetStringMapString("KafkaTopics"),
 		KafkaGroupID:       options.GetString("KafkaGroupID"),
 		MetricsPort:        options.GetInt("MetricsPort"),
 		LogLevel:           options.GetString("LogLevel"),

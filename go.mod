@@ -20,7 +20,7 @@ require (
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
-	github.com/redhatinsights/app-common-go v1.2.0 // indirect
+	github.com/redhatinsights/app-common-go v1.2.0
 	github.com/redhatinsights/platform-go-middlewares v0.7.0
 	github.com/segmentio/kafka-go v0.4.9
 	github.com/sirupsen/logrus v1.7.0

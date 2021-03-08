@@ -33,9 +33,14 @@ func main() {
 
 	l.Log.Info("SuperKey Worker started.")
 
-	// TODO: return SuperKeyRequestQueue from config
+	// returns real topic name from config (identical in local and app-interface mode)
+	requestQueue, found := conf.KafkaTopics[SuperKeyRequestQueue]
+	if found == false {
+		requestQueue = SuperKeyRequestQueue
+	}
+
 	// anonymous function, kinda like passing a block in ruby.
-	messaging.ConsumeWithFunction(SuperKeyRequestQueue, func(msg kafka.Message) {
+	messaging.ConsumeWithFunction(requestQueue, func(msg kafka.Message) {
 		l.Log.Infof("Started processing message %s", string(msg.Value))
 		processSuperkeyRequest(msg)
 		l.Log.Infof("Finished processing message %s", string(msg.Value))
