@@ -110,11 +110,18 @@ func (f *ForgedApplication) CreatePayload(username, password, appType *string) {
 }
 
 func (f *ForgedApplication) applicationExtraPayload() map[string]interface{} {
-	return map[string]interface{}{
+	extra := map[string]interface{}{
 		"_superkey": map[string]interface{}{
 			"steps":    f.StepsCompleted,
 			"guid":     f.GUID,
 			"provider": f.Request.Provider,
 		},
 	}
+
+	// return the s3 bucket if we had it set during resource creation
+	if f.StepsCompleted["s3"] != nil {
+		extra["bucket"] = f.StepsCompleted["s3"]["output"]
+	}
+
+	return extra
 }
