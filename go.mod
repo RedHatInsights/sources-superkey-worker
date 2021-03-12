@@ -4,9 +4,10 @@ go 1.15
 
 require (
 	github.com/aws/aws-sdk-go v1.37.7
-	github.com/aws/aws-sdk-go-v2 v1.1.0
+	github.com/aws/aws-sdk-go-v2 v1.2.0
 	github.com/aws/aws-sdk-go-v2/config v1.1.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.1.0
+	github.com/aws/aws-sdk-go-v2/service/costandusagereportservice v1.1.1
 	github.com/aws/aws-sdk-go-v2/service/iam v1.1.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.1.0
 	github.com/frankban/quicktest v1.11.3 // indirect

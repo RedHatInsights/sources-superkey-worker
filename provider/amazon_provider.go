@@ -3,7 +3,9 @@ package provider
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"path"
 	"strings"
 
@@ -43,6 +45,39 @@ func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 			f.MarkCompleted("s3", map[string]string{"output": name})
 			l.Log.Infof("Successfully created S3 bucket %v", name)
 
+			// Cost reporting requires a policy so the Reporting job can
+			// put things into the S3 bucket.
+			if step.Payload == "\"create_cost_policy\"" {
+				l.Log.Infof("Creating Reporting S3 Policy %v", name)
+				payload := substiteInPayload(amazon.CostS3Policy, f, step.Substitutions)
+
+				err := a.Client.AttachBucketPolicy(name, payload)
+				if err != nil {
+					ioutil.WriteFile("/tmp/out.txt", []byte(payload), 0644)
+					l.Log.Errorf("Failed to create Reporting S3 Policy %v, rolling back superkey request %v", name, f.Request)
+					return f, err
+				}
+			}
+
+		case "cost_report":
+			payload := substiteInPayload(step.Payload, f, step.Substitutions)
+			costReport := amazon.CostReport{}
+
+			err := json.Unmarshal([]byte(payload), &costReport)
+			if err != nil {
+				return f, err
+			}
+
+			l.Log.Infof("Create Cost and Usage Report: %v", costReport.ReportName)
+			err = a.Client.CreateCostAndUsageReport(&costReport)
+			if err != nil {
+				l.Log.Errorf("Failed to create cost and usage request %v, rolling back superkey request %v", costReport.ReportName, f.Request)
+				return f, err
+			}
+
+			f.MarkCompleted("cost_report", map[string]string{"output": costReport.ReportName})
+			l.Log.Infof("Successfully created Cost and Usage Report %v", costReport.ReportName)
+
 		case "policy":
 			name := fmt.Sprintf("%v-policy-%v", getShortName(f.Request.ApplicationType), f.GUID)
 			payload := substiteInPayload(step.Payload, f, step.Substitutions)
@@ -50,7 +85,7 @@ func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 
 			arn, err := a.Client.CreatePolicy(name, payload)
 			if err != nil {
-				l.Log.Error("Failed to create Policy %v, rolling back superkey request %v", name, f.Request)
+				l.Log.Errorf("Failed to create Policy %v, rolling back superkey request %v", name, f.Request)
 				return f, err
 			}
 
@@ -64,7 +99,7 @@ func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 
 			roleArn, err := a.Client.CreateRole(name, payload)
 			if err != nil {
-				l.Log.Error("Failed to create Role %v, rolling back superkey request %v", name, f.Request)
+				l.Log.Errorf("Failed to create Role %v, rolling back superkey request %v", name, f.Request)
 				return f, err
 			}
 
@@ -119,10 +154,10 @@ func substiteInPayload(payload string, f *superkey.ForgedApplication, substituti
 		switch sub {
 		case "get_account":
 			accountNumber := f.Request.Extra["account"]
-			payload = strings.Replace(payload, name, accountNumber, -1)
+			payload = strings.ReplaceAll(payload, name, accountNumber)
 		case "s3":
 			s3name := f.StepsCompleted["s3"]["output"]
-			payload = strings.Replace(payload, name, s3name, -1)
+			payload = strings.ReplaceAll(payload, name, s3name)
 		}
 	}
 
@@ -154,7 +189,7 @@ func (a *AmazonProvider) TearDown(f *superkey.ForgedApplication) []error {
 	}
 
 	// -----------------
-	// role/policy can be deleted independently of each other.
+	// role/policy/reporting can be deleted independently of each other.
 	// -----------------
 	if f.StepsCompleted["policy"] != nil {
 		policyArn := f.StepsCompleted["policy"]["output"]
@@ -178,6 +213,18 @@ func (a *AmazonProvider) TearDown(f *superkey.ForgedApplication) []error {
 		}
 
 		l.Log.Infof("Destroyed role %v", roleName)
+	}
+
+	if f.StepsCompleted["cost_report"] != nil {
+		reportName := f.StepsCompleted["cost_report"]["output"]
+
+		err := a.Client.DestroyCostAndUsageReport(reportName)
+		if err != nil {
+			l.Log.Warnf("Failed to destroy cost and usage report %v", reportName)
+			errors = append(errors, err)
+		}
+
+		l.Log.Infof("Destroyed Cost and Usage report %v", reportName)
 	}
 
 	// -----------------
