@@ -33,11 +33,11 @@ func (f *ForgedApplication) CreateInSourcesAPI() error {
 	client := sources.NewAPIClient(f.Request.TenantID)
 
 	l.Log.Infof("Posting resources back to Sources API: %v", f)
-	err := f.createAuthentications(client)
+	err := f.storeSuperKeyData(client)
 	if err != nil {
 		return err
 	}
-	err = f.storeSuperKeyData(client)
+	err = f.createAuthentications(client)
 	if err != nil {
 		return err
 	}
