@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"path"
 	"strings"
 
@@ -53,7 +52,6 @@ func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 
 				err := a.Client.AttachBucketPolicy(name, payload)
 				if err != nil {
-					ioutil.WriteFile("/tmp/out.txt", []byte(payload), 0644)
 					l.Log.Errorf("Failed to create Reporting S3 Policy %v, rolling back superkey request %v", name, f.Request)
 					return f, err
 				}
