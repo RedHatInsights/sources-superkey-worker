@@ -22,11 +22,16 @@ type AmazonProvider struct {
 // of resources required for the application, specified by the request.
 // returns: the new forged application payload with info on what was processed, in case something went wrong.
 func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*superkey.ForgedApplication, error) {
+	guid, err := generateGUID()
+	if err != nil {
+		return nil, err
+	}
+
 	f := &superkey.ForgedApplication{
 		StepsCompleted: make(map[string]map[string]string),
 		Request:        request,
 		Client:         a,
-		GUID:           generateGUID(),
+		GUID:           guid,
 	}
 
 	for _, step := range request.SuperKeySteps {
@@ -134,10 +139,14 @@ func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 }
 
 // generateGUID() generates a short guid for resources
-func generateGUID() string {
+func generateGUID() (string, error) {
 	bytes := make([]byte, 8)
-	rand.Read(bytes)
-	return hex.EncodeToString(bytes)
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(bytes), nil
 }
 
 // getShortName(string) generates a name off of the application type

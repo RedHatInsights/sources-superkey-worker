@@ -60,7 +60,7 @@ func GetInternalAuthentication(tenant, authID string) (*sourcesapi.Authenticatio
 	for retry := 0; retry < 5; retry++ {
 		res, err = http.DefaultClient.Do(req)
 
-		if res.StatusCode == 200 {
+		if err != nil || res.StatusCode == 200 {
 			break
 		} else {
 			l.Log.Warnf("Authentication %v unavailable, retrying...", authID)
@@ -68,11 +68,11 @@ func GetInternalAuthentication(tenant, authID string) (*sourcesapi.Authenticatio
 		}
 	}
 
-	defer res.Body.Close()
-	if res.StatusCode != 200 {
-		l.Log.Warnf("Error getting authentication: %v, tenant: %v", authID, tenant)
+	if err != nil || res.StatusCode != 200 {
+		l.Log.Warnf("Error getting authentication: %v, tenant: %v, error: %v", authID, tenant, err)
 		return nil, fmt.Errorf("Failed to get Authentication %v", authID)
 	}
+	defer res.Body.Close()
 
 	data, _ := ioutil.ReadAll(res.Body)
 	auth := sourcesapi.Authentication{}
