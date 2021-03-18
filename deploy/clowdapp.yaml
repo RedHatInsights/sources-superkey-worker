@@ -1,16 +1,16 @@
 apiVersion: v1
 kind: Template
 metadata:
-  name: sources
+  name: sources-superkey-worker
 objects:
 - apiVersion: cloud.redhat.com/v1alpha1
   kind: ClowdApp
   metadata:
-    name: sources
+    name: sources-superkey-worker
   spec:
     envName: ${ENV_NAME}
     deployments:
-    - name: superkey-worker
+    - name: svc
       minReplicas: ${{MIN_REPLICAS}}
       podSpec:
         image: ${IMAGE}:${IMAGE_TAG}
@@ -47,6 +47,9 @@ parameters:
   value: "false"
 - name: DISABLE_RESOURCE_DELETION
   value: "false"
+- description: Clowder ENV
+  name: ENV_NAME
+  required: true
 - description: Image
   name: IMAGE
   value: quay.io/cloudservices/sources-superkey-worker
@@ -68,7 +71,7 @@ parameters:
 - name: SOURCES_HOST
   displayName: Sources Service Host
   description: Host to use for the Sources service URL.
-  value: sources-api
+  value: sources-api-svc
 - name: SOURCES_PORT
   displayName: Sources Service Port
   description: Port to use for the Sources service URL.
