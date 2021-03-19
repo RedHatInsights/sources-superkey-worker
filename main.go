@@ -35,7 +35,7 @@ func main() {
 
 	// returns real topic name from config (identical in local and app-interface mode)
 	requestQueue, found := conf.KafkaTopics[SuperKeyRequestQueue]
-	if found == false {
+	if !found {
 		requestQueue = SuperKeyRequestQueue
 	}
 
