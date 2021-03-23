@@ -2,6 +2,7 @@ package superkey
 
 import (
 	"context"
+	"time"
 
 	sourcesapi "github.com/lindgrenj6/sources-api-client-go"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
@@ -31,6 +32,11 @@ func (f *ForgedApplication) MarkCompleted(name string, data map[string]string) {
 // CreateInSourcesAPI - creates the forged application in sources
 func (f *ForgedApplication) CreateInSourcesAPI() error {
 	client := sources.NewAPIClient(f.Request.TenantID)
+
+	l.Log.Info("Sleeping to prevent IAM Race Condition")
+	// IAM is slow, this prevents the race condition of the POST happening
+	// before it's ready.
+	time.Sleep(7 * time.Second)
 
 	l.Log.Infof("Posting resources back to Sources API: %v", f)
 	err := f.storeSuperKeyData(client)
