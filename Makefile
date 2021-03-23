@@ -10,7 +10,7 @@ clean:
 	rm sources-superkey-worker
 
 container:
-	docker build . -t sources-superkey-worker -f Containerfile
+	docker build . -t sources-superkey-worker -f Dockerfile
 
 run: build
 	./sources-superkey-worker
