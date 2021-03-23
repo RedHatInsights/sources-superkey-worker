@@ -20,11 +20,11 @@ var xRhIdentity = `{"identity": {"account_number": "$ACCT$", "user": {"is_org_ad
 
 // NewAPIClient - creates a sources api client with default header for account
 // returns: Sources API Client
-func NewAPIClient(acct string) *sourcesapi.APIClient {
+func NewAPIClient(identityHeader string) *sourcesapi.APIClient {
 	conf := config.Get()
 
 	return sourcesapi.NewAPIClient(&sourcesapi.Configuration{
-		DefaultHeader: map[string]string{"x-rh-identity": encodedIdentity(acct)},
+		DefaultHeader: map[string]string{"x-rh-identity": identityHeader},
 		Servers: []sourcesapi.ServerConfiguration{
 			{
 				URL: fmt.Sprintf("%s://%s:%d/api/sources/v3.1", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort),

@@ -30,8 +30,8 @@ func (f *ForgedApplication) MarkCompleted(name string, data map[string]string) {
 }
 
 // CreateInSourcesAPI - creates the forged application in sources
-func (f *ForgedApplication) CreateInSourcesAPI() error {
-	client := sources.NewAPIClient(f.Request.TenantID)
+func (f *ForgedApplication) CreateInSourcesAPI(identityHeader string) error {
+	client := sources.NewAPIClient(identityHeader)
 
 	l.Log.Info("Sleeping to prevent IAM Race Condition")
 	// IAM is slow, this prevents the race condition of the POST happening

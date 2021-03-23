@@ -22,7 +22,8 @@ var (
 	// DisableDeletion disabled processing `destroy_application` sk requests
 	DisableDeletion = os.Getenv("DISABLE_RESOURCE_DELETION")
 
-	conf = config.Get()
+	conf           = config.Get()
+	identityHeader string
 )
 
 func main() {
@@ -49,7 +50,11 @@ func main() {
 
 // processSuperkeyRequest - processes messages.
 func processSuperkeyRequest(msg kafka.Message) {
-	eventType := getEventType(msg.Headers)
+	eventType := getHeader("event_type", msg.Headers)
+	identityHeader = getHeader("x-rh-identity", msg.Headers)
+	if identityHeader == "" {
+		l.Log.Warnf("No x-rh-identity header found for message, skipping...")
+	}
 
 	switch eventType {
 	case "create_application":
@@ -103,7 +108,7 @@ func createResources(req *superkey.CreateRequest) {
 			}
 		}
 
-		err := req.MarkSourceUnavailable(err, newApp)
+		err := req.MarkSourceUnavailable(err, newApp, identityHeader)
 		if err != nil {
 			l.Log.Errorf("Error during PATCH unavailable to application/source: %v", err)
 		}
@@ -112,7 +117,7 @@ func createResources(req *superkey.CreateRequest) {
 	}
 	l.Log.Infof("Finished Forging request: %v", req)
 
-	err = newApp.CreateInSourcesAPI()
+	err = newApp.CreateInSourcesAPI(identityHeader)
 	if err != nil {
 		l.Log.Errorf("Failed to POST req to sources-api: %v, tearing down.", req)
 		provider.TearDown(newApp)
@@ -150,12 +155,9 @@ func parseSuperKeyDestroyRequest(value []byte) (*superkey.DestroyRequest, error)
 	return &request, nil
 }
 
-// getEventType - iterates through headers to find the `event_type` header
-// from miq-messaging.
-// returns: event_type value
-func getEventType(headers []kafka.Header) string {
+func getHeader(name string, headers []kafka.Header) string {
 	for _, header := range headers {
-		if header.Key == "event_type" {
+		if header.Key == name {
 			return string(header.Value)
 		}
 	}
