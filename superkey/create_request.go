@@ -12,8 +12,8 @@ import (
 // MarkSourceUnavailable marks the application and source as unavailable, while
 // also marking the application's availability_status_error to what AWS updated
 // us with.
-func (req *CreateRequest) MarkSourceUnavailable(err error, newApplication *ForgedApplication) error {
-	client := sources.NewAPIClient(req.TenantID)
+func (req *CreateRequest) MarkSourceUnavailable(err error, newApplication *ForgedApplication, identityHeader string) error {
+	client := sources.NewAPIClient(identityHeader)
 	availabilityStatus := "unavailable"
 	availabilityStatusError := fmt.Sprintf("Resource Creation erorr: failed to create resources in amazon, error: %v", err)
 	extra := make(map[string]interface{})
