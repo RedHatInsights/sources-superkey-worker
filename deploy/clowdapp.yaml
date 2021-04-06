@@ -7,6 +7,9 @@ objects:
   kind: ClowdApp
   metadata:
     name: sources-superkey-worker
+    labels:
+      app: sources
+      clowdapp: sources-superkey-worker
   spec:
     envName: ${ENV_NAME}
     deployments:
