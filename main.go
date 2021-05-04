@@ -31,12 +31,12 @@ var (
 func main() {
 	l.InitLogger(conf)
 
+	initMetrics()
+
 	l.Log.Infof("Listening to Kafka at: %v", conf.KafkaBrokers)
 	l.Log.Infof("Talking to Sources API at: %v", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort))
 
 	l.Log.Info("SuperKey Worker started.")
-
-	initMetrics()
 
 	// returns real topic name from config (identical in local and app-interface mode)
 	requestQueue, found := conf.KafkaTopics[SuperKeyRequestQueue]
