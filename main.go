@@ -3,8 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redhatinsights/sources-superkey-worker/config"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/messaging"
@@ -29,6 +31,8 @@ var (
 func main() {
 	l.InitLogger(conf)
 
+	initMetrics()
+
 	l.Log.Infof("Listening to Kafka at: %v", conf.KafkaBrokers)
 	l.Log.Infof("Talking to Sources API at: %v", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort))
 
@@ -46,6 +50,16 @@ func main() {
 		processSuperkeyRequest(msg)
 		l.Log.Infof("Finished processing message %s", string(msg.Value))
 	})
+}
+
+func initMetrics() {
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		err := http.ListenAndServe(fmt.Sprintf(":%d", conf.MetricsPort), nil)
+		if err != nil {
+			l.Log.Errorf("Metrics init error: %s", err)
+		}
+	}()
 }
 
 // processSuperkeyRequest - processes messages.

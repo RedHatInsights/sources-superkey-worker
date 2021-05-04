@@ -21,6 +21,7 @@ require (
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
+	github.com/prometheus/client_golang v1.10.0
 	github.com/redhatinsights/app-common-go v1.2.0
 	github.com/redhatinsights/platform-go-middlewares v0.7.0
 	github.com/segmentio/kafka-go v0.4.9
@@ -34,7 +35,6 @@ require (
 	github.com/stretchr/testify v1.7.0 // indirect
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777 // indirect
-	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
 	golang.org/x/text v0.3.5 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
