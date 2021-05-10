@@ -21,7 +21,7 @@ var logLevel logrus.Level
 
 // NewCustomLoggerFormatter creates a new log formatter
 func NewCustomLoggerFormatter() *CustomLoggerFormatter {
-	f := &CustomLoggerFormatter{}
+	f := &CustomLoggerFormatter{AppName: "sources-superkey-worker"}
 
 	var err error
 	if f.Hostname == "" {
@@ -48,10 +48,13 @@ func (f *CustomLoggerFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 		"@timestamp": now.Format("2006-01-02T15:04:05.999Z"),
 		"@version":   1,
 		"message":    entry.Message,
-		"levelname":  entry.Level.String(),
+		"levelname":  entry.Level.String(), //Backward compatibility - TODO: remove?
+		"level":      entry.Level.String(),
 		"hostname":   f.Hostname,
-		"app":        "sources-superkey-worker",
+		"app":        f.AppName,
 		"caller":     entry.Caller.Func.Name(),
+		"labels":     map[string]interface{}{"app" : f.AppName},
+		"tags":       []string{f.AppName},
 	}
 
 	for k, v := range entry.Data {
