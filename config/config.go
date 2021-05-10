@@ -18,6 +18,7 @@ type SuperKeyWorkerConfig struct {
 	MetricsPort        int
 	LogLevel           string
 	LogGroup           string
+	LogHandler         string
 	AwsRegion          string
 	AwsAccessKeyID     string
 	AwsSecretAccessKey string
@@ -57,6 +58,7 @@ func Get() *SuperKeyWorkerConfig {
 	options.SetDefault("KafkaGroupID", "sources-superkey-worker")
 	options.SetDefault("KafkaTopics", kafkaTopics)
 	options.SetDefault("LogLevel", "INFO")
+    options.SetDefault("LogHandler", os.Getenv("LOG_HANDLER"))
 
 	options.SetDefault("SourcesHost", os.Getenv("SOURCES_HOST"))
 	options.SetDefault("SourcesScheme", os.Getenv("SOURCES_SCHEME"))
@@ -74,6 +76,7 @@ func Get() *SuperKeyWorkerConfig {
 		KafkaGroupID:       options.GetString("KafkaGroupID"),
 		MetricsPort:        options.GetInt("MetricsPort"),
 		LogLevel:           options.GetString("LogLevel"),
+        LogHandler:         options.GetString("LogHandler"),
 		LogGroup:           options.GetString("LogGroup"),
 		AwsRegion:          options.GetString("AwsRegion"),
 		AwsAccessKeyID:     options.GetString("AwsAccessKeyID"),

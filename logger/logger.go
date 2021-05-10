@@ -72,7 +72,12 @@ func (f *CustomCloudwatch) Format(entry *logrus.Entry) ([]byte, error) {
 
 	b.Write(j)
 
+    b.Write([]byte("\n"))
 	return b.Bytes(), nil
+}
+
+func ForwardLogsToStderr(logHandler string) bool {
+    return logHandler == "haberdasher"
 }
 
 // InitLogger initializes the Sources SuperKey logger
@@ -101,8 +106,13 @@ func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 
 	formatter := NewCloudwatchFormatter()
 
+    logOutput := os.Stdout
+    if ForwardLogsToStderr(cfg.LogHandler) {
+        logOutput = os.Stderr
+    }
+
 	Log = &logrus.Logger{
-		Out:          os.Stdout,
+		Out:          logOutput,
 		Level:        logLevel,
 		Formatter:    formatter,
 		Hooks:        make(logrus.LevelHooks),
