@@ -19,9 +19,9 @@ import (
 var Log *logrus.Logger
 var logLevel logrus.Level
 
-// NewCloudwatchFormatter creates a new log formatter
-func NewCloudwatchFormatter() *CustomCloudwatch {
-	f := &CustomCloudwatch{}
+// NewCustomLoggerFormatter creates a new log formatter
+func NewCustomLoggerFormatter() *CustomLoggerFormatter {
+	f := &CustomLoggerFormatter{}
 
 	var err error
 	if f.Hostname == "" {
@@ -34,7 +34,7 @@ func NewCloudwatchFormatter() *CustomCloudwatch {
 }
 
 //Format is the log formatter for the entry
-func (f *CustomCloudwatch) Format(entry *logrus.Entry) ([]byte, error) {
+func (f *CustomLoggerFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	b := &bytes.Buffer{}
 
 	now := time.Now()
@@ -104,7 +104,7 @@ func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 		logLevel = logrus.FatalLevel
 	}
 
-	formatter := NewCloudwatchFormatter()
+	formatter := NewCustomLoggerFormatter()
 
     logOutput := os.Stdout
     if ForwardLogsToStderr(cfg.LogHandler) {

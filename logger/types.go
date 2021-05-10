@@ -1,7 +1,7 @@
 package logger
 
-// CustomCloudwatch adds hostname and app name
-type CustomCloudwatch struct {
+// NewCustomLoggerFormatter adds hostname and app name
+type CustomLoggerFormatter struct {
 	Hostname string
 }
 
