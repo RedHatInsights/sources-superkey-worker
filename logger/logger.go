@@ -110,7 +110,9 @@ func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 	formatter := NewCustomLoggerFormatter()
 
     logOutput := os.Stdout
-    if ForwardLogsToStderr(cfg.LogHandler) {
+    forwardLogsToStderr := ForwardLogsToStderr(cfg.LogHandler)
+
+    if forwardLogsToStderr {
         logOutput = os.Stderr
     }
 
@@ -121,6 +123,10 @@ func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 		Hooks:        make(logrus.LevelHooks),
 		ReportCaller: true,
 	}
+
+    if forwardLogsToStderr {
+        return Log
+    }
 
 	// TODO: maybe redo this to work with the go-aws-v2 library.
 	// That would involve updating the platform middleware though, which might
