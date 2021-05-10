@@ -14,4 +14,10 @@ RUN go build
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:8.3-291
 COPY --from=build /build/sources-superkey-worker /sources-superkey-worker
-ENTRYPOINT ["/sources-superkey-worker"]
+
+RUN curl -L -o /usr/bin/haberdasher \
+    https://github.com/RedHatInsights/haberdasher/releases/latest/download/haberdasher_linux_amd64 && \
+    chmod 755 /usr/bin/haberdasher
+
+ENTRYPOINT ["/usr/bin/haberdasher"]
+CMD ["/sources-superkey-worker"]
