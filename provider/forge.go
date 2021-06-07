@@ -50,6 +50,11 @@ func getProvider(request *superkey.CreateRequest) (superkey.Provider, error) {
 		return nil, err
 	}
 
+	if auth.Username == nil || auth.Password == nil {
+		l.Log.Errorf("superkey credential %v missing username or password", request.SuperKey)
+		return nil, fmt.Errorf("superkey credential %v missing username or password", request.SuperKey)
+	}
+
 	switch request.Provider {
 	case "amazon":
 		// client, err := amazon.NewClient(os.Getenv("AWS_ACCESS"), os.Getenv("AWS_SECRET"), getStepNames(request.SuperKeySteps)...)
@@ -64,7 +69,7 @@ func getProvider(request *superkey.CreateRequest) (superkey.Provider, error) {
 
 		return &AmazonProvider{Client: client}, nil
 	default:
-		return nil, fmt.Errorf("Unsupported auth provider %v", request.Provider)
+		return nil, fmt.Errorf("unsupported auth provider %v", request.Provider)
 	}
 }
 
