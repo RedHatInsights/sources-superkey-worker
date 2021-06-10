@@ -71,6 +71,8 @@ func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 				return f, err
 			}
 
+			costReport.ReportName = fmt.Sprintf("%v-%v", costReport.ReportName, f.GUID)
+
 			l.Log.Infof("Create Cost and Usage Report: %v", costReport.ReportName)
 			err = a.Client.CreateCostAndUsageReport(&costReport)
 			if err != nil {
