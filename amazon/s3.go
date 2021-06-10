@@ -3,8 +3,6 @@ package amazon
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
@@ -24,14 +22,12 @@ func (a *Client) CreateS3Bucket(name string) error {
 // DestroyS3Bucket - Destroys an s3 bucket from name and config
 // returns error if anything went wrong
 func (a *Client) DestroyS3Bucket(name string) error {
-	var errors []error
-
 	// First we have to clear any objects that are in the bucket
 	objects, err := a.S3.ListObjects(context.Background(), &s3.ListObjectsInput{
 		Bucket: &name,
 	})
 	if err != nil {
-		errors = append(errors, err)
+		return fmt.Errorf("error during s3 bucket deletion during cleanup: %v", err)
 	}
 
 	for _, object := range objects.Contents {
@@ -40,7 +36,7 @@ func (a *Client) DestroyS3Bucket(name string) error {
 			Key:    object.Key,
 		})
 		if err != nil {
-			errors = append(errors, err)
+			return fmt.Errorf("error during s3 bucket deletion during cleanup: %v", err)
 		}
 	}
 
@@ -48,15 +44,7 @@ func (a *Client) DestroyS3Bucket(name string) error {
 		Bucket: &name,
 	})
 	if err != nil {
-		errors = append(errors, err)
-	}
-
-	if len(errors) != 0 {
-		var sb strings.Builder
-		for i, err := range errors {
-			fmt.Fprintf(&sb, "%v: %v, ", i, err)
-		}
-		return fmt.Errorf("Errors found: %v", sb.String())
+		return fmt.Errorf("error during s3 bucket deletion: %v", err)
 	}
 
 	return nil
