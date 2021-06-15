@@ -19,9 +19,9 @@ import (
 var Log *logrus.Logger
 var logLevel logrus.Level
 
-// NewCloudwatchFormatter creates a new log formatter
-func NewCloudwatchFormatter() *CustomCloudwatch {
-	f := &CustomCloudwatch{}
+// NewCustomLoggerFormatter creates a new log formatter
+func NewCustomLoggerFormatter() *CustomLoggerFormatter {
+	f := &CustomLoggerFormatter{AppName: "sources-superkey-worker"}
 
 	var err error
 	if f.Hostname == "" {
@@ -34,7 +34,7 @@ func NewCloudwatchFormatter() *CustomCloudwatch {
 }
 
 //Format is the log formatter for the entry
-func (f *CustomCloudwatch) Format(entry *logrus.Entry) ([]byte, error) {
+func (f *CustomLoggerFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	b := &bytes.Buffer{}
 
 	now := time.Now()
@@ -48,10 +48,13 @@ func (f *CustomCloudwatch) Format(entry *logrus.Entry) ([]byte, error) {
 		"@timestamp": now.Format("2006-01-02T15:04:05.999Z"),
 		"@version":   1,
 		"message":    entry.Message,
-		"levelname":  entry.Level.String(),
+		"levelname":  entry.Level.String(), //Backward compatibility - TODO: remove?
+		"level":      entry.Level.String(),
 		"hostname":   f.Hostname,
-		"app":        "sources-superkey-worker",
+		"app":        f.AppName,
 		"caller":     entry.Caller.Func.Name(),
+		"labels":     map[string]interface{}{"app" : f.AppName},
+		"tags":       []string{f.AppName},
 	}
 
 	for k, v := range entry.Data {
@@ -72,7 +75,12 @@ func (f *CustomCloudwatch) Format(entry *logrus.Entry) ([]byte, error) {
 
 	b.Write(j)
 
+    b.Write([]byte("\n"))
 	return b.Bytes(), nil
+}
+
+func forwardLogsToStderr(logHandler string) bool {
+    return logHandler == "haberdasher"
 }
 
 // InitLogger initializes the Sources SuperKey logger
@@ -99,10 +107,16 @@ func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 		logLevel = logrus.FatalLevel
 	}
 
-	formatter := NewCloudwatchFormatter()
+	formatter := NewCustomLoggerFormatter()
+
+    logOutput := os.Stdout
+
+    if forwardLogsToStderr(cfg.LogHandler) {
+        logOutput = os.Stderr
+    }
 
 	Log = &logrus.Logger{
-		Out:          os.Stdout,
+		Out:          logOutput,
 		Level:        logLevel,
 		Formatter:    formatter,
 		Hooks:        make(logrus.LevelHooks),
@@ -112,7 +126,7 @@ func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 	// TODO: maybe redo this to work with the go-aws-v2 library.
 	// That would involve updating the platform middleware though, which might
 	// not be fun.
-	if key != "" && secret != "" {
+	if key != "" && secret != "" && !forwardLogsToStderr(cfg.LogHandler) {
 		cred := credentials.NewStaticCredentials(key, secret, "")
 		awsconf := aws.NewConfig().WithRegion(region).WithCredentials(cred)
 		hook, err := lc.NewBatchingHook(group, stream, awsconf, 10*time.Second)
