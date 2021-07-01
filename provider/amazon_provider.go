@@ -182,20 +182,6 @@ func (a *AmazonProvider) TearDown(f *superkey.ForgedApplication) []error {
 	errors := make([]error, 0)
 
 	// -----------------
-	// destroy the cost and usage report first
-	// -----------------
-	if f.StepsCompleted["cost_report"] != nil {
-		reportName := f.StepsCompleted["cost_report"]["output"]
-		err := a.Client.DestroyCostAndUsageReport(reportName)
-		if err != nil {
-			l.Log.Warnf("Failed to delete cost report %v", reportName)
-			errors = append(errors, err)
-		}
-
-		l.Log.Infof("Deleted cost report %v", reportName)
-	}
-
-	// -----------------
 	// unbind the role first (if it happened) so we can cleanly delete the policy and the role.
 	// -----------------
 	if f.StepsCompleted["bind_role"] != nil {
