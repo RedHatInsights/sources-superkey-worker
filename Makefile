@@ -3,8 +3,8 @@ all: build
 build:
 	go build .
 
-debug:
-	go build . && dlv debug
+tidy:
+	go mod tidy
 
 clean:
 	rm sources-superkey-worker
@@ -21,4 +21,17 @@ fancyrun: build
 runcontainer: container
 	docker run -ti --rm --net host -e KAFKA_BROKERS=localhost:9092 sources-superkey-worker
 
-.PHONY: build container run fancyrun runcontainer clean debug
+remotedebug:
+	dlv debug --headless --listen=:2345 --api-version=2 --accept-multiclient
+
+debug:
+	dlv debug
+
+lint:
+	go vet ./...
+	golangci-lint run -E gofmt,gci,bodyclose,forcetypeassert,misspell
+
+gci:
+	golangci-lint run -E gci --fix
+
+.PHONY: build container run fancyrun runcontainer clean debug tidy debug remotedebug lint gci

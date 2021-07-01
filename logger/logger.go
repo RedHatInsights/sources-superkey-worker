@@ -53,7 +53,7 @@ func (f *CustomLoggerFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 		"hostname":   f.Hostname,
 		"app":        f.AppName,
 		"caller":     entry.Caller.Func.Name(),
-		"labels":     map[string]interface{}{"app" : f.AppName},
+		"labels":     map[string]interface{}{"app": f.AppName},
 		"tags":       []string{f.AppName},
 	}
 
@@ -75,12 +75,12 @@ func (f *CustomLoggerFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 
 	b.Write(j)
 
-    b.Write([]byte("\n"))
+	b.Write([]byte("\n"))
 	return b.Bytes(), nil
 }
 
 func forwardLogsToStderr(logHandler string) bool {
-    return logHandler == "haberdasher"
+	return logHandler == "haberdasher"
 }
 
 // InitLogger initializes the Sources SuperKey logger
@@ -109,11 +109,11 @@ func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 
 	formatter := NewCustomLoggerFormatter()
 
-    logOutput := os.Stdout
+	logOutput := os.Stdout
 
-    if forwardLogsToStderr(cfg.LogHandler) {
-        logOutput = os.Stderr
-    }
+	if forwardLogsToStderr(cfg.LogHandler) {
+		logOutput = os.Stderr
+	}
 
 	Log = &logrus.Logger{
 		Out:          logOutput,

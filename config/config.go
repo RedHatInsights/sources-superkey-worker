@@ -5,7 +5,6 @@ import (
 	"os"
 
 	clowder "github.com/redhatinsights/app-common-go/pkg/api/v1"
-
 	"github.com/spf13/viper"
 )
 
