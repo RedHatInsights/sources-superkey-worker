@@ -42,6 +42,19 @@ objects:
           requests:
             cpu: ${CPU_REQUEST}
             memory: ${MEMORY_REQUEST}
+        readinessProbe:
+          exec:
+            command:
+              - stat
+              - /tmp/healthy
+          initialDelaySeconds: 3
+        livenessProbe:
+          exec:
+            command:
+              - stat
+              - /tmp/healthy
+          initialDelaySeconds: 10
+          periodSeconds: 10
     kafkaTopics:
     - topicName: platform.sources.superkey-requests
       partitions: 3
