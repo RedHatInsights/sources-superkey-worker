@@ -99,6 +99,8 @@ func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 		logLevel = logrus.DebugLevel
 	case "ERROR":
 		logLevel = logrus.ErrorLevel
+	case "WARN":
+		logLevel = logrus.WarnLevel
 	default:
 		logLevel = logrus.InfoLevel
 	}

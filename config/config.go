@@ -56,7 +56,7 @@ func Get() *SuperKeyWorkerConfig {
 
 	options.SetDefault("KafkaGroupID", "sources-superkey-worker")
 	options.SetDefault("KafkaTopics", kafkaTopics)
-	options.SetDefault("LogLevel", "INFO")
+	options.SetDefault("LogLevel", os.Getenv("LOG_LEVEL"))
 	options.SetDefault("LogHandler", os.Getenv("LOG_HANDLER"))
 
 	options.SetDefault("SourcesHost", os.Getenv("SOURCES_HOST"))
