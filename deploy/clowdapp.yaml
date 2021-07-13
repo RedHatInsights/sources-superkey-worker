@@ -86,7 +86,7 @@ parameters:
 - name: IMAGE_TAG
   value: latest
 - name: LOG_HANDLER
-  value: 'haberdasher'
+  value: 'built-in'
 - name: LOG_LEVEL
   value: WARN    
 - name: MEMORY_LIMIT

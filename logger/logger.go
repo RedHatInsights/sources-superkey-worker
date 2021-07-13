@@ -48,7 +48,6 @@ func (f *CustomLoggerFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 		"@timestamp": now.Format("2006-01-02T15:04:05.999Z"),
 		"@version":   1,
 		"message":    entry.Message,
-		"levelname":  entry.Level.String(), //Backward compatibility - TODO: remove?
 		"level":      entry.Level.String(),
 		"hostname":   f.Hostname,
 		"app":        f.AppName,
