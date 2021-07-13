@@ -3,8 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redhatinsights/sources-superkey-worker/config"
@@ -32,6 +35,7 @@ func main() {
 	l.InitLogger(conf)
 
 	initMetrics()
+	initHealthCheck()
 
 	l.Log.Infof("Listening to Kafka at: %v", conf.KafkaBrokers)
 	l.Log.Infof("Talking to Sources API at: %v", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort))
@@ -50,16 +54,6 @@ func main() {
 		processSuperkeyRequest(msg)
 		l.Log.Infof("Finished processing message %s", string(msg.Value))
 	})
-}
-
-func initMetrics() {
-	go func() {
-		http.Handle("/metrics", promhttp.Handler())
-		err := http.ListenAndServe(fmt.Sprintf(":%d", conf.MetricsPort), nil)
-		if err != nil {
-			l.Log.Errorf("Metrics init error: %s", err)
-		}
-	}()
 }
 
 // processSuperkeyRequest - processes messages.
@@ -177,4 +171,68 @@ func getHeader(name string, headers []kafka.Header) string {
 	}
 
 	return ""
+}
+
+func initMetrics() {
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		err := http.ListenAndServe(fmt.Sprintf(":%d", conf.MetricsPort), nil)
+		if err != nil {
+			l.Log.Errorf("Metrics init error: %s", err)
+		}
+	}()
+}
+
+func initHealthCheck() {
+	go func() {
+		healthFile := "/tmp/healthy"
+		// which endpoints can we hit and get a 200 from without any auth, these are the main 2
+		// we need anyway.
+		svcs := []string{"https://iam.amazonaws.com", "https://s3.amazonaws.com"}
+
+		// custom http client with timeout
+		client := http.Client{Timeout: 5 * time.Second}
+
+		for {
+			for _, svc := range svcs {
+				resp, err := client.Get(svc)
+
+				if err == nil && resp.StatusCode == 200 {
+					// Copying to the bitbucket in order to gc the memory.
+					_, err := io.Copy(ioutil.Discard, resp.Body)
+					if err != nil {
+						l.Log.Errorf("Error discarding response body: %v", err)
+					}
+
+					err = resp.Body.Close()
+					if err != nil {
+						l.Log.Errorf("Error closing response body: %v", err)
+					}
+
+					// check if file exists, creating it if not (first run, or recovery)
+					_, err = os.Stat(healthFile)
+					if err != nil {
+						_, err = os.Create(healthFile)
+						if err != nil {
+							l.Log.Errorf("Failed to touch healthcheck file")
+						}
+					}
+
+				} else {
+					l.Log.Warnf("Error hitting %s, err %v, removing %s", svc, err, healthFile)
+
+					_, err = os.Stat(healthFile)
+					// this is a bit complicated - err will be nil _if the file is there_, so we want
+					// to remove only if the err is nil.
+					if err == nil {
+						_ = os.Remove(healthFile)
+					}
+
+					break
+				}
+			}
+
+			time.Sleep(10 * time.Second)
+		}
+	}()
 }
