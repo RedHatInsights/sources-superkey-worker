@@ -41,8 +41,6 @@ func main() {
 	l.Log.Infof("Talking to Sources API at: %v", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort))
 
 	l.Log.Info("SuperKey Worker started.")
-	l.Log.Warnf("SuperKey Worker started.")  // TODO: remove - this for testing reasons
-	l.Log.Errorf("SuperKey Worker started.") // TODO: remove - this for testing reasons
 
 	// returns real topic name from config (identical in local and app-interface mode)
 	requestQueue, found := conf.KafkaTopics[SuperKeyRequestQueue]
