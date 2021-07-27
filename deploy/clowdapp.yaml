@@ -17,6 +17,8 @@ objects:
         env:
         - name: LOG_LEVEL
           value: ${LOG_LEVEL}
+        - name: CONTAINER_LOG_LEVEL
+          value: ${CONTAINER_LOG_LEVEL}
         - name: DISABLE_RESOURCE_CREATION
           value: ${DISABLE_RESOURCE_CREATION}
         - name: DISABLE_RESOURCE_DELETION
@@ -88,7 +90,9 @@ parameters:
 - name: LOG_HANDLER
   value: 'built-in'
 - name: LOG_LEVEL
-  value: WARN    
+  value: WARN
+- name: CONTAINER_LOG_LEVEL
+  value: INFO
 - name: MEMORY_LIMIT
   value: "50Mi"
 - name: MEMORY_REQUEST
