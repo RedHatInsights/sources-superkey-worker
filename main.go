@@ -38,7 +38,7 @@ func main() {
 	initHealthCheck()
 
 	l.Log.Infof("Listening to Kafka at: %v", conf.KafkaBrokers)
-	l.Log.Infof("Talking to Sources API at: %v", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort))
+	l.Log.Infof("Talking to Sources API at: [%v] using PSK [%v]", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort), conf.SourcesPSK)
 
 	l.Log.Info("SuperKey Worker started.")
 
