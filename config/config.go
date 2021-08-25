@@ -24,6 +24,7 @@ type SuperKeyWorkerConfig struct {
 	SourcesHost        string
 	SourcesScheme      string
 	SourcesPort        int
+	SourcesPSK         string
 }
 
 // Get - returns the config parsed from runtime vars
@@ -62,6 +63,7 @@ func Get() *SuperKeyWorkerConfig {
 	options.SetDefault("SourcesHost", os.Getenv("SOURCES_HOST"))
 	options.SetDefault("SourcesScheme", os.Getenv("SOURCES_SCHEME"))
 	options.SetDefault("SourcesPort", os.Getenv("SOURCES_PORT"))
+	options.SetDefault("SourcesPSK", os.Getenv("SOURCES_PSK"))
 
 	hostname, _ := os.Hostname()
 	options.SetDefault("Hostname", hostname)
@@ -83,5 +85,6 @@ func Get() *SuperKeyWorkerConfig {
 		SourcesHost:        options.GetString("SourcesHost"),
 		SourcesScheme:      options.GetString("SourcesScheme"),
 		SourcesPort:        options.GetInt("SourcesPort"),
+		SourcesPSK:         options.GetString("SourcesPSK"),
 	}
 }

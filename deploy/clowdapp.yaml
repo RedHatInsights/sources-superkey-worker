@@ -35,6 +35,12 @@ objects:
           value: ${SOURCES_HOST}
         - name: SOURCES_PORT
           value: ${SOURCES_PORT}
+        - name: SOURCES_PSK
+          valueFrom:
+            secretKeyRef:
+              name: internal-psk
+              key: psk
+              optional: true
         - name: LOG_HANDLER
           value: ${LOG_HANDLER}
         resources:
@@ -96,10 +102,10 @@ parameters:
 - name: MEMORY_LIMIT
   value: "50Mi"
 - name: MEMORY_REQUEST
-  value: "25Mi"  
+  value: "25Mi"
 - name: MIN_REPLICAS
   description: The number of replicas to use for the prometheus deployment
-  value: "1"                               
+  value: "1"
 - name: SOURCES_SCHEME
   displayName: Sources Service Scheme
   description: Scheme to use for the Sources service URL.
