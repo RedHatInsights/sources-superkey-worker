@@ -40,6 +40,7 @@ func NewAPIClient(identityHeader string) (*sourcesapi.APIClient, error) {
 			DefaultHeader: map[string]string{
 				"x-rh-sources-psk":            conf.SourcesPSK,
 				"x-rh-sources-account-number": xrhid,
+				"x-rh-identity":               identityHeader, // backwards compat -- needed for cost
 			},
 			Servers: []sourcesapi.ServerConfiguration{
 				{URL: fmt.Sprintf("%s://%s:%d/api/sources/v3.1", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort)},
