@@ -19,13 +19,11 @@ import (
 )
 
 var (
-	// SuperKeyRequestQueue - the queue to listen on for superkey requests
-	SuperKeyRequestQueue = "platform.sources.superkey-requests"
+	superKeyRequestQueue = "platform.sources.superkey-requests"
 
-	// DisableCreation disabled processing `create_application` sk requests
-	DisableCreation = os.Getenv("DISABLE_RESOURCE_CREATION")
-	// DisableDeletion disabled processing `destroy_application` sk requests
-	DisableDeletion = os.Getenv("DISABLE_RESOURCE_DELETION")
+	// flags to control turning off resource creation via API
+	disableCreation = os.Getenv("DISABLE_RESOURCE_CREATION")
+	disableDeletion = os.Getenv("DISABLE_RESOURCE_DELETION")
 
 	conf           = config.Get()
 	identityHeader string
@@ -37,15 +35,18 @@ func main() {
 	initMetrics()
 	initHealthCheck()
 
+	// run this one async since it involves a web request
+	go initCloudigradeAzureConfig()
+
 	l.Log.Infof("Listening to Kafka at: %v", conf.KafkaBrokers)
 	l.Log.Infof("Talking to Sources API at: [%v] using PSK [%v]", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort), conf.SourcesPSK)
 
 	l.Log.Info("SuperKey Worker started.")
 
 	// returns real topic name from config (identical in local and app-interface mode)
-	requestQueue, found := conf.KafkaTopics[SuperKeyRequestQueue]
+	requestQueue, found := conf.KafkaTopics[superKeyRequestQueue]
 	if !found {
-		requestQueue = SuperKeyRequestQueue
+		requestQueue = superKeyRequestQueue
 	}
 
 	// anonymous function, kinda like passing a block in ruby.
@@ -66,7 +67,7 @@ func processSuperkeyRequest(msg kafka.Message) {
 
 	switch eventType {
 	case "create_application":
-		if DisableCreation == "true" {
+		if disableCreation == "true" {
 			l.Log.Infof("Skipping create_application request: %v", msg.Value)
 			return
 		}
@@ -82,7 +83,7 @@ func processSuperkeyRequest(msg kafka.Message) {
 		l.Log.Infof("Finished processing `create_application` request for tenant %v type %v", req.TenantID, req.ApplicationType)
 
 	case "destroy_application":
-		if DisableDeletion == "true" {
+		if disableDeletion == "true" {
 			l.Log.Infof("Skipping destroy_application request: %v", msg.Value)
 			return
 		}
@@ -235,4 +236,36 @@ func initHealthCheck() {
 			time.Sleep(10 * time.Second)
 		}
 	}()
+}
+
+func initCloudigradeAzureConfig() {
+	_, err := provider.FetchCloudigradeConfigs()
+	if err != nil {
+		l.Log.Errorf("Failed to fetch configs from cloudigrade - falling back to secret if it exists.")
+
+		if _, err := os.Stat(provider.CLOUDIGRADE_AZURE_TEMPLATE_PATH); os.IsNotExist(err) {
+			in, err := os.Open(provider.CLOUDIGRADE_AZURE_SECRET_PATH)
+			if err != nil {
+				l.Log.Errorf("Failed to open default template (not mounted) - azure will not work.")
+				return
+			}
+			defer in.Close()
+
+			out, err := os.Create(provider.CLOUDIGRADE_AZURE_TEMPLATE_PATH)
+			if err != nil {
+				l.Log.Errorf("Failed to create destination file - azure will not work.")
+				return
+			}
+			defer out.Close()
+
+			_, err = io.Copy(out, in)
+			if err != nil {
+				l.Log.Errorf("Failed to copy template file - azure will not work.")
+				return
+			}
+		}
+	}
+
+	// we didn't return from an error anywhere - so it must have imported successfully.
+	provider.CloudigradeTemplateImported = true
 }

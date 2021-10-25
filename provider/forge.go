@@ -57,7 +57,6 @@ func getProvider(request *superkey.CreateRequest) (superkey.Provider, error) {
 
 	switch request.Provider {
 	case "amazon":
-		// client, err := amazon.NewClient(os.Getenv("AWS_ACCESS"), os.Getenv("AWS_SECRET"), getStepNames(request.SuperKeySteps)...)
 		client, err := amazon.NewClient(
 			*auth.Username,
 			*auth.Password,
@@ -68,6 +67,9 @@ func getProvider(request *superkey.CreateRequest) (superkey.Provider, error) {
 		}
 
 		return &AmazonProvider{Client: client}, nil
+
+	case "azure":
+		return &AzureProvider{Username: *auth.Username, Password: *auth.Password}, nil
 	default:
 		return nil, fmt.Errorf("unsupported auth provider %v", request.Provider)
 	}

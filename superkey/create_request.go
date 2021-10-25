@@ -19,7 +19,7 @@ func (req *CreateRequest) MarkSourceUnavailable(incomingErr error, newApplicatio
 	}
 
 	availabilityStatus := "unavailable"
-	availabilityStatusError := fmt.Sprintf("Resource Creation erorr: failed to create resources in amazon, error: %v", incomingErr)
+	availabilityStatusError := fmt.Sprintf("Resource Creation erorr: failed to create resources in %v, error: %v", newApplication.Request.Provider, incomingErr)
 	extra := make(map[string]interface{})
 
 	// creating the aws resources was at least partially successful, need to store
