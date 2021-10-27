@@ -88,3 +88,15 @@ type AzureDeployment struct {
 	Tags interface{} `json:"tags"`
 	Type string      `json:"type"`
 }
+
+type AzureDeploymentErrorJson struct {
+	OdataError struct {
+		Code    string `json:"code"`
+		Message struct {
+			Lang  string `json:"lang"`
+			Value string `json:"value"`
+		} `json:"message"`
+		RequestID string `json:"requestId"`
+		Date      string `json:"date"`
+	} `json:"odata.error"`
+}

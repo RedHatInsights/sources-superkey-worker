@@ -13,7 +13,8 @@ import (
 func Forge(request *superkey.CreateRequest) (*superkey.ForgedApplication, error) {
 	client, err := getProvider(request)
 	if err != nil {
-		return nil, err
+		// the request is required to post back the resources for the resource name.
+		return &superkey.ForgedApplication{Request: request}, err
 	}
 	f, err := client.ForgeApplication(request)
 
@@ -69,7 +70,13 @@ func getProvider(request *superkey.CreateRequest) (superkey.Provider, error) {
 		return &AmazonProvider{Client: client}, nil
 
 	case "azure":
-		return &AzureProvider{Username: *auth.Username, Password: *auth.Password}, nil
+		if auth.Extra == nil || auth.Extra.Azure == nil || *auth.Extra.Azure.TenantId == "" {
+			l.Log.Errorf("superkey credential %v missing tenant id", request.SuperKey)
+			return nil, fmt.Errorf("superkey credential %v missing tenant id", request.SuperKey)
+		}
+
+		return &AzureProvider{Username: *auth.Username, Password: *auth.Password, Tenant: *auth.Extra.Azure.TenantId}, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported auth provider %v", request.Provider)
 	}

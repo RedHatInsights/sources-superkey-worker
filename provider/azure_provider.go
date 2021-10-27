@@ -12,6 +12,7 @@ import (
 type AzureProvider struct {
 	Username string
 	Password string
+	Tenant   string
 }
 
 func (az *AzureProvider) ForgeApplication(request *superkey.CreateRequest) (*superkey.ForgedApplication, error) {
@@ -37,12 +38,14 @@ func (az *AzureProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 	}
 
 	name := fmt.Sprintf("redhat-cloudmeter-%v", guid)
+	// keeping the generated name so we can clean it up later even if the deploy fails.
+	f.StepsCompleted["az-lighthouse"] = map[string]string{"name": name}
 
-	// Create the struct that will manage running the create/destroy commands
+	// Allocate the struct that will manage running the create/destroy commands
 	cliInstance := azure.AzCli{HomeDirectory: tmpdir}
 	defer cliInstance.Cleanup()
 
-	err = cliInstance.Login(az.Username, az.Password)
+	err = cliInstance.Login(az.Username, az.Password, az.Tenant)
 	if err != nil {
 		return f, err
 	}
@@ -57,7 +60,7 @@ func (az *AzureProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 		return f, err
 	}
 
-	f.StepsCompleted["az-lighthouse"] = map[string]string{"name": name, "subscriptionID": subscriptionID}
+	f.StepsCompleted["az-lighthouse"]["subscriptionID"] = subscriptionID
 	appType := path.Base(f.Request.ApplicationType)
 	f.CreatePayload(&subscriptionID, nil, &appType)
 
@@ -76,7 +79,7 @@ func (az *AzureProvider) TearDown(f *superkey.ForgedApplication) []error {
 	cliInstance := azure.AzCli{HomeDirectory: tmpdir}
 	defer cliInstance.Cleanup()
 
-	err = cliInstance.Login(az.Username, az.Password)
+	err = cliInstance.Login(az.Username, az.Password, az.Tenant)
 	if err != nil {
 		return []error{err}
 	}
@@ -87,11 +90,6 @@ func (az *AzureProvider) TearDown(f *superkey.ForgedApplication) []error {
 	}
 
 	err = cliInstance.Logout()
-	if err != nil {
-		return []error{err}
-	}
-
-	err = cliInstance.Cleanup()
 	if err != nil {
 		return []error{err}
 	}

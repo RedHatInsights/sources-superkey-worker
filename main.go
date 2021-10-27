@@ -34,9 +34,7 @@ func main() {
 
 	initMetrics()
 	initHealthCheck()
-
-	// run this one async since it involves a web request
-	go initCloudigradeAzureConfig()
+	initCloudigradeAzureConfig()
 
 	l.Log.Infof("Listening to Kafka at: %v", conf.KafkaBrokers)
 	l.Log.Infof("Talking to Sources API at: [%v] using PSK [%v]", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort), conf.SourcesPSK)
@@ -239,30 +237,14 @@ func initHealthCheck() {
 }
 
 func initCloudigradeAzureConfig() {
-	_, err := provider.FetchCloudigradeConfigs()
+	err := provider.FetchCloudigradeConfigs()
 	if err != nil {
 		l.Log.Errorf("Failed to fetch configs from cloudigrade - falling back to secret if it exists.")
 
-		if _, err := os.Stat(provider.CLOUDIGRADE_AZURE_TEMPLATE_PATH); os.IsNotExist(err) {
-			in, err := os.Open(provider.CLOUDIGRADE_AZURE_SECRET_PATH)
-			if err != nil {
-				l.Log.Errorf("Failed to open default template (not mounted) - azure will not work.")
-				return
-			}
-			defer in.Close()
-
-			out, err := os.Create(provider.CLOUDIGRADE_AZURE_TEMPLATE_PATH)
-			if err != nil {
-				l.Log.Errorf("Failed to create destination file - azure will not work.")
-				return
-			}
-			defer out.Close()
-
-			_, err = io.Copy(out, in)
-			if err != nil {
-				l.Log.Errorf("Failed to copy template file - azure will not work.")
-				return
-			}
+		err := provider.CopyLocalAzureTemplate()
+		if err != nil {
+			l.Log.Errorf("%v - azure resource creation will not work", err.Error())
+			return
 		}
 	}
 
