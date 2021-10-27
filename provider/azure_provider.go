@@ -2,7 +2,7 @@ package provider
 
 import (
 	"fmt"
-	"os"
+	"io/ioutil"
 	"path"
 
 	"github.com/redhatinsights/sources-superkey-worker/azure"
@@ -25,7 +25,7 @@ func (az *AzureProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 		return nil, err
 	}
 
-	tmpdir, err := os.MkdirTemp("/tmp/", "az")
+	tmpdir, err := ioutil.TempDir("/tmp/", "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temporary home directory for az cli: %v", err.Error())
 	}
@@ -68,7 +68,7 @@ func (az *AzureProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 }
 
 func (az *AzureProvider) TearDown(f *superkey.ForgedApplication) []error {
-	tmpdir, err := os.MkdirTemp("/tmp/", "")
+	tmpdir, err := ioutil.TempDir("/tmp/", "")
 	if err != nil {
 		return []error{fmt.Errorf("failed to create temporary home directory for az cli: %v", err.Error())}
 	}

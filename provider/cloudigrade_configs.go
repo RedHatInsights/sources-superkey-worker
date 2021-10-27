@@ -60,7 +60,7 @@ func FetchCloudigradeConfigs() error {
 		return err
 	}
 
-	err = os.WriteFile(CLOUDIGRADE_AZURE_TEMPLATE_PATH, []byte(azureTemplate), 0644)
+	err = ioutil.WriteFile(CLOUDIGRADE_AZURE_TEMPLATE_PATH, []byte(azureTemplate), 0644)
 	if err != nil {
 		return err
 	}
