@@ -15,6 +15,9 @@ container:
 run: build
 	./sources-superkey-worker
 
+inlinerun:
+	go run *.go
+
 fancyrun: build
 	./sources-superkey-worker | grep '^{' | jq -r .
 
@@ -34,4 +37,4 @@ lint:
 gci:
 	golangci-lint run -E gci --fix
 
-.PHONY: build container run fancyrun runcontainer clean debug tidy debug remotedebug lint gci
+.PHONY: build container run fancyrun runcontainer clean debug tidy debug remotedebug lint gci inlinerun
