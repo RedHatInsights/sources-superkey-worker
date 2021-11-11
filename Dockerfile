@@ -1,5 +1,4 @@
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.4-205 as build
-MAINTAINER jlindgre@redhat.com
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.5-204 as build
 
 RUN mkdir /build
 WORKDIR /build
@@ -12,7 +11,7 @@ RUN go mod download
 COPY . .
 RUN go build
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.4-205
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.5-204
 COPY --from=build /build/sources-superkey-worker /sources-superkey-worker
 
 RUN curl -L -o /usr/bin/haberdasher \
