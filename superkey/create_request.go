@@ -18,16 +18,8 @@ func (req *CreateRequest) MarkSourceUnavailable(incomingErr error, newApplicatio
 		return err
 	}
 
-	// setting the provider name for the error message - since it can be nil potentially.
-	var provider string
-	if newApplication == nil || newApplication.Request == nil {
-		provider = "cloud provider"
-	} else {
-		provider = newApplication.Request.Provider
-	}
-
 	availabilityStatus := "unavailable"
-	availabilityStatusError := fmt.Sprintf("Resource Creation erorr: failed to create resources in %v: %v", provider, incomingErr)
+	availabilityStatusError := fmt.Sprintf("Resource Creation erorr: failed to create resources in amazon, error: %v", incomingErr)
 	extra := make(map[string]interface{})
 
 	// creating the aws resources was at least partially successful, need to store
