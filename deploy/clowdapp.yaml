@@ -43,10 +43,6 @@ objects:
               optional: true
         - name: LOG_HANDLER
           value: ${LOG_HANDLER}
-        - name: CLOUD_METER_URL
-          value: ${CLOUD_METER_API_SCHEME}://${CLOUD_METER_API_HOST}:${CLOUD_METER_API_PORT}
-        - name: CLOUD_METER_SYSCONFIG_PATH
-          value: ${CLOUD_METER_SYSCONFIG_PATH}
         resources:
           limits:
             cpu: ${CPU_LIMIT}
@@ -122,16 +118,3 @@ parameters:
   displayName: Sources Service Port
   description: Port to use for the Sources service URL.
   value: "8000"
-- description: Scheme of the Cloud Meter API
-  displayName: Cloud Meter API Scheme
-  name: CLOUD_METER_API_SCHEME
-  value: http
-- description: Hostname of the Cloud Meter API
-  displayName: Cloud Meter API Hostname
-  name: CLOUD_METER_API_HOST
-  required: true
-  value: cloudigrade-api
-- name: CLOUD_METER_API_PORT
-  value: '8000'
-- name: CLOUD_METER_SYSCONFIG_PATH
-  value: /api/cloudigrade/v2/sysconfig/
