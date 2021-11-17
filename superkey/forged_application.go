@@ -150,7 +150,7 @@ func waitTime() time.Duration {
 
 	i, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil {
-		l.Log.Errorf("Failed to parse %q as sleep time - defaulting to %v", DEFAULT_SLEEP_TIME)
+		l.Log.Errorf("Failed to parse %q as sleep time - defaulting to %v", raw, DEFAULT_SLEEP_TIME)
 		return DEFAULT_SLEEP_TIME
 	}
 
