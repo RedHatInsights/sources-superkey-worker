@@ -43,6 +43,8 @@ objects:
               optional: true
         - name: LOG_HANDLER
           value: ${LOG_HANDLER}
+        - name: AWS_WAIT_TIME
+          value: ${AWS_WAIT_TIME}
         resources:
           limits:
             cpu: ${CPU_LIMIT}
@@ -118,3 +120,7 @@ parameters:
   displayName: Sources Service Port
   description: Port to use for the Sources service URL.
   value: "8000"
+- name: AWS_WAIT_TIME
+  displayName: AWS Wait Time
+  description: Time to sleep between creating the resources and posting back to Sources API
+  value: "15"

@@ -3,6 +3,8 @@ package superkey
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	sourcesapi "github.com/lindgrenj6/sources-api-client-go"
@@ -40,7 +42,7 @@ func (f *ForgedApplication) CreateInSourcesAPI(identityHeader string) error {
 	l.Log.Info("Sleeping to prevent IAM Race Condition")
 	// IAM is slow, this prevents the race condition of the POST happening
 	// before it's ready.
-	time.Sleep(7 * time.Second)
+	time.Sleep(waitTime() * time.Second)
 
 	l.Log.Infof("Posting resources back to Sources API: %v", f)
 	err = f.storeSuperKeyData(client)
@@ -134,4 +136,23 @@ func (f *ForgedApplication) applicationExtraPayload() map[string]interface{} {
 	}
 
 	return extra
+}
+
+const DEFAULT_SLEEP_TIME = 7
+
+// read from the ENV first - if there isn't anything there fall back to the old
+// default which is 7 seconds. defined ^^
+func waitTime() time.Duration {
+	raw := os.Getenv("AWS_WAIT_TIME")
+	if raw == "" {
+		return DEFAULT_SLEEP_TIME // chosen by fair dice roll
+	}
+
+	i, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		l.Log.Errorf("Failed to parse %q as sleep time - defaulting to %v", raw, DEFAULT_SLEEP_TIME)
+		return DEFAULT_SLEEP_TIME
+	}
+
+	return time.Duration(i)
 }
