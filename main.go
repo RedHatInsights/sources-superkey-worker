@@ -14,7 +14,6 @@ import (
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/provider"
 	"github.com/redhatinsights/sources-superkey-worker/superkey"
-	"github.com/segmentio/kafka-go/protocol"
 )
 
 var (
@@ -26,8 +25,7 @@ var (
 	// DisableDeletion disabled processing `destroy_application` sk requests
 	DisableDeletion = os.Getenv("DISABLE_RESOURCE_DELETION")
 
-	conf           = config.Get()
-	identityHeader string
+	conf = config.Get()
 )
 
 func main() {
@@ -69,8 +67,8 @@ func main() {
 
 // processSuperkeyRequest - processes messages.
 func processSuperkeyRequest(msg kafka.Message) {
-	eventType := getHeader("event_type", msg.Headers)
-	identityHeader = getHeader("x-rh-identity", msg.Headers)
+	eventType := msg.GetHeader("event_type")
+	identityHeader := msg.GetHeader("x-rh-identity")
 	if identityHeader == "" {
 		l.Log.Warnf("No x-rh-identity header found for message, skipping...")
 	}
@@ -89,6 +87,7 @@ func processSuperkeyRequest(msg kafka.Message) {
 			l.Log.Warnf("Error parsing request: %v", err)
 			return
 		}
+		req.IdentityHeader = identityHeader
 
 		createResources(req)
 		l.Log.Infof("Finished processing `create_application` request for tenant %v type %v", req.TenantID, req.ApplicationType)
@@ -129,7 +128,7 @@ func createResources(req *superkey.CreateRequest) {
 			}
 		}
 
-		err := req.MarkSourceUnavailable(err, newApp, identityHeader)
+		err := req.MarkSourceUnavailable(err, newApp, req.IdentityHeader)
 		if err != nil {
 			l.Log.Errorf("Error during PATCH unavailable to application/source: %v", err)
 		}
@@ -138,7 +137,7 @@ func createResources(req *superkey.CreateRequest) {
 	}
 	l.Log.Infof("Finished Forging request: %v", req)
 
-	err = newApp.CreateInSourcesAPI(identityHeader)
+	err = newApp.CreateInSourcesAPI(req.IdentityHeader)
 	if err != nil {
 		l.Log.Errorf("Failed to POST req to sources-api: %v, tearing down.", req)
 		provider.TearDown(newApp)
@@ -154,16 +153,6 @@ func destroyResources(req *superkey.DestroyRequest) {
 		}
 	}
 	l.Log.Infof("Finished Un-Forging request: %v", req)
-}
-
-func getHeader(name string, headers []protocol.Header) string {
-	for _, header := range headers {
-		if header.Key == name {
-			return string(header.Value)
-		}
-	}
-
-	return ""
 }
 
 func initMetrics() {
