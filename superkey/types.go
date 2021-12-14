@@ -6,6 +6,7 @@ import (
 
 // CreateRequest - struct representing a request for a superkey
 type CreateRequest struct {
+	IdentityHeader  string            `json:"identity_header"`
 	TenantID        string            `json:"tenant_id"`
 	SourceID        string            `json:"source_id"`
 	ApplicationID   string            `json:"application_id"`
