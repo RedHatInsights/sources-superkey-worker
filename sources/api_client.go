@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -102,7 +102,7 @@ func GetInternalAuthentication(tenant, authID string) (*sourcesapi.Authenticatio
 		return nil, fmt.Errorf("Failed to get Authentication %v", authID)
 	}
 
-	data, _ := ioutil.ReadAll(res.Body)
+	data, _ := io.ReadAll(res.Body)
 	auth := sourcesapi.Authentication{}
 
 	// unmarshaling the data from the request, the id comes back as a string which fills `err`

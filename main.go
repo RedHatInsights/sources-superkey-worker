@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"time"
@@ -181,7 +180,7 @@ func initHealthCheck() {
 
 				if err == nil && resp.StatusCode == 200 {
 					// Copying to the bitbucket in order to gc the memory.
-					_, err := io.Copy(ioutil.Discard, resp.Body)
+					_, err := io.Copy(io.Discard, resp.Body)
 					if err != nil {
 						l.Log.Errorf("Error discarding response body: %v", err)
 					}
