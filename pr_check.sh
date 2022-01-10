@@ -19,7 +19,6 @@ IQE_FILTER_EXPRESSION=""
 # source $CICD_ROOT/deploy_ephemeral_env.sh
 # source $CICD_ROOT/smoke_test.sh
 
-
 make container
 
 if [[ $? != 0 ]]; then
