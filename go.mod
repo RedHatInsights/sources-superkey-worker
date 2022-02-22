@@ -3,7 +3,7 @@ module github.com/redhatinsights/sources-superkey-worker
 go 1.15
 
 require (
-	github.com/RedHatInsights/sources-api-go v0.0.0-20211213144039-456336cb8e5c
+	github.com/RedHatInsights/sources-api-go v0.0.0-20220222114404-60af51a8ba7f
 	github.com/aws/aws-sdk-go v1.42.22
 	github.com/aws/aws-sdk-go-v2 v1.2.0
 	github.com/aws/aws-sdk-go-v2/config v1.1.0
@@ -14,7 +14,6 @@ require (
 	github.com/frankban/quicktest v1.13.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
-	github.com/lindgrenj6/sources-api-client-go v0.0.0-20210215174124-caba6974c015
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/prometheus/client_golang v1.10.0
 	github.com/redhatinsights/app-common-go v1.6.0

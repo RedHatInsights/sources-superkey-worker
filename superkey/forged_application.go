@@ -1,13 +1,11 @@
 package superkey
 
 import (
-	"context"
-	"fmt"
 	"os"
 	"strconv"
 	"time"
 
-	sourcesapi "github.com/lindgrenj6/sources-api-client-go"
+	"github.com/RedHatInsights/sources-api-go/model"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/sources"
 )
@@ -34,26 +32,21 @@ func (f *ForgedApplication) MarkCompleted(name string, data map[string]string) {
 
 // CreateInSourcesAPI - creates the forged application in sources
 func (f *ForgedApplication) CreateInSourcesAPI(identityHeader string) error {
-	client, err := sources.NewAPIClient(identityHeader)
-	if err != nil {
-		return fmt.Errorf("error creating api client to post resources back to Sources API: %w", err)
-	}
-
 	l.Log.Info("Sleeping to prevent IAM Race Condition")
 	// IAM is slow, this prevents the race condition of the POST happening
 	// before it's ready.
 	time.Sleep(waitTime() * time.Second)
 
 	l.Log.Infof("Posting resources back to Sources API: %v", f)
-	err = f.storeSuperKeyData(client)
+	err := f.storeSuperKeyData()
 	if err != nil {
 		return err
 	}
-	err = f.createAuthentications(client)
+	err = f.createAuthentications()
 	if err != nil {
 		return err
 	}
-	err = f.checkAvailability(client)
+	err = f.checkAvailability()
 	if err != nil {
 		return err
 	}
@@ -62,27 +55,34 @@ func (f *ForgedApplication) CreateInSourcesAPI(identityHeader string) error {
 	return nil
 }
 
-func (f *ForgedApplication) createAuthentications(client *sourcesapi.APIClient) error {
-	authentications := []sourcesapi.BulkCreatePayloadAuthentications{f.Product.AuthPayload}
-	payload := sourcesapi.BulkCreatePayload{Authentications: &authentications}
+func (f *ForgedApplication) createAuthentications() error {
+	id, err := strconv.ParseInt(f.Request.ApplicationID, 10, 64)
+	if err != nil {
+		return err
+	}
 
-	_, r, err := client.DefaultApi.BulkCreate(context.Background()).BulkCreatePayload(payload).Execute()
+	auth := model.AuthenticationCreateRequest{
+		AuthType:     f.Product.AuthPayload.AuthType,
+		Username:     f.Product.AuthPayload.Username,
+		ResourceType: f.Product.AuthPayload.ResourceType,
+		ResourceID:   id,
+	}
 
-	if r == nil || r.StatusCode != 201 {
-		l.Log.Errorf("Failed to create authentications %v", err)
+	err = sources.CreateAuthentication(f.Request.TenantID, &auth)
+	if err != nil {
+		l.Log.Errorf("Failed to create authentication: %v", err)
 		return err
 	}
 
 	return nil
 }
 
-func (f *ForgedApplication) storeSuperKeyData(client *sourcesapi.APIClient) error {
-	request := client.DefaultApi.UpdateApplication(context.Background(), f.Request.ApplicationID)
-	request = request.Application(sourcesapi.Application{Extra: &f.Product.Extra})
+func (f *ForgedApplication) storeSuperKeyData() error {
+	err := sources.PatchApplication(f.Request.TenantID, f.Request.ApplicationID, map[string]interface{}{
+		"extra": f.Product.Extra,
+	})
 
-	r, err := request.Execute()
-
-	if r == nil || r.StatusCode != 204 {
+	if err != nil {
 		l.Log.Errorf("Failed to update application with superkey data %v", err)
 		return err
 	}
@@ -90,11 +90,9 @@ func (f *ForgedApplication) storeSuperKeyData(client *sourcesapi.APIClient) erro
 	return nil
 }
 
-func (f *ForgedApplication) checkAvailability(client *sourcesapi.APIClient) error {
-	request := client.DefaultApi.CheckAvailabilitySource(context.Background(), f.Product.SourceID)
-	r, err := request.Execute()
-
-	if r == nil || r.StatusCode != 202 {
+func (f *ForgedApplication) checkAvailability() error {
+	err := sources.CheckAvailability(f.Request.TenantID, f.Product.SourceID)
+	if err != nil {
 		l.Log.Errorf("Failed to check Source availability: %v", err)
 		return err
 	}
@@ -106,17 +104,17 @@ func (f *ForgedApplication) checkAvailability(client *sourcesapi.APIClient) erro
 // based on the steps completed.
 func (f *ForgedApplication) CreatePayload(username, password, appType *string) {
 	authtype := f.Request.Extra["result_type"]
-	resourceType := "application"
+	resourceId, _ := strconv.ParseInt(f.Request.ApplicationID, 10, 64)
 
 	f.Product = &App{
 		SourceID: f.Request.SourceID,
 		Extra:    f.applicationExtraPayload(),
-		AuthPayload: sourcesapi.BulkCreatePayloadAuthentications{
-			Authtype:     &authtype,
-			Username:     username,
-			Password:     password,
-			ResourceName: &f.Request.ApplicationID,
-			ResourceType: &resourceType,
+		AuthPayload: model.AuthenticationCreateRequest{
+			AuthType: authtype,
+			Username: *username,
+			// TODO: make this a "raw" field that is an interface, set it to string.
+			ResourceID:   resourceId,
+			ResourceType: "Application",
 		},
 	}
 }

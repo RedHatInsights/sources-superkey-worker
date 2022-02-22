@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	sourcesapi "github.com/lindgrenj6/sources-api-client-go"
+	"github.com/RedHatInsights/sources-api-go/model"
 	"github.com/redhatinsights/sources-superkey-worker/config"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 )
@@ -19,40 +19,126 @@ import (
 var xRhIdentity = `{"identity": {"account_number": "$ACCT$", "user": {"is_org_admin": true}}}`
 var conf = config.Get()
 
-// NewAPIClient - creates a sources api client with default header for account
-// returns: Sources API Client, error
-func NewAPIClient(identityHeader string) (*sourcesapi.APIClient, error) {
-	xrhid, err := getAccountNumber(identityHeader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse x-rh-identity for SourcesApiClient: %v", identityHeader)
+func CheckAvailability(tenant string, sourceID string) error {
+	l.Log.Infof("Checking Availability for Source ID: %v", sourceID)
+
+	reqURL, _ := url.Parse(fmt.Sprintf(
+		"http://%v:%v/api/sources/v3.1/sources/%v", conf.SourcesHost, conf.SourcesPort, sourceID,
+	))
+
+	req := &http.Request{
+		Method: http.MethodPost,
+		URL:    reqURL,
+		Header: headers(tenant),
 	}
 
-	// TODO: remove this once the PSK switchover is done.
-	if conf.SourcesPSK == "" {
-		return sourcesapi.NewAPIClient(&sourcesapi.Configuration{
-			DefaultHeader: map[string]string{"x-rh-identity": identityHeader},
-			Servers: []sourcesapi.ServerConfiguration{
-				{URL: fmt.Sprintf("%s://%s:%d/api/sources/v3.1", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort)},
-			},
-		}), nil
-	} else {
-		return sourcesapi.NewAPIClient(&sourcesapi.Configuration{
-			DefaultHeader: map[string]string{
-				"x-rh-sources-psk":            conf.SourcesPSK,
-				"x-rh-sources-account-number": xrhid,
-				"x-rh-identity":               identityHeader, // backwards compat -- needed for cost
-			},
-			Servers: []sourcesapi.ServerConfiguration{
-				{URL: fmt.Sprintf("%s://%s:%d/api/sources/v3.1", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort)},
-			},
-		}), nil
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != 202 {
+		return fmt.Errorf("failed to check availability for source %v: %v", sourceID, err)
 	}
+	defer resp.Body.Close()
+
+	return nil
+}
+
+func CreateAuthentication(tenant string, auth *model.AuthenticationCreateRequest) error {
+	l.Log.Infof("Creating Authentication: %v", auth)
+
+	reqURL, _ := url.Parse(fmt.Sprintf(
+		"http://%v:%v/api/sources/v3.1/authentications", conf.SourcesHost, conf.SourcesPort,
+	))
+
+	body, err := json.Marshal(auth)
+	if err != nil {
+		return err
+	}
+
+	req := &http.Request{
+		Method: http.MethodPost,
+		URL:    reqURL,
+		Header: headers(tenant),
+		Body:   io.NopCloser(bytes.NewBuffer(body)),
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to create Authentication: %v", err)
+	} else if resp.StatusCode > 299 {
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return fmt.Errorf("failed to create Authentication: %v", string(b))
+	}
+	defer resp.Body.Close()
+
+	return nil
+}
+
+func PatchApplication(tenant, appID string, payload map[string]interface{}) error {
+	l.Log.Infof("Patching Application %v with Data: %v", appID, payload)
+
+	reqURL, _ := url.Parse(fmt.Sprintf(
+		"http://%v:%v/api/sources/v3.1/applications/%v",
+		conf.SourcesHost,
+		conf.SourcesPort,
+		appID,
+	))
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req := &http.Request{
+		Method: http.MethodPatch,
+		URL:    reqURL,
+		Header: headers(tenant),
+		Body:   io.NopCloser(bytes.NewBuffer(body)),
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode > 299 {
+		return fmt.Errorf("failed to patch Application %v: %v", appID, err)
+	}
+	defer resp.Body.Close()
+
+	return nil
+}
+
+func PatchSource(tenant, sourceID string, payload map[string]interface{}) error {
+	l.Log.Infof("Patching Source %v", sourceID)
+
+	reqURL, _ := url.Parse(fmt.Sprintf(
+		"http://%v:%v/api/sources/v3.1/sources/%v",
+		conf.SourcesHost,
+		conf.SourcesPort,
+		sourceID,
+	))
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req := &http.Request{
+		Method: http.MethodPatch,
+		URL:    reqURL,
+		Header: headers(tenant),
+		Body:   io.NopCloser(bytes.NewBuffer(body)),
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode > 299 {
+		return fmt.Errorf("failed to patch Source %v: %v", sourceID, err)
+	}
+	defer resp.Body.Close()
+
+	return nil
 }
 
 // GetInternalAuthentication requests an authentication via the internal sources api
 // that way we can expose the password.
 // returns: populated sources api Authentication object, error
-func GetInternalAuthentication(tenant, authID string) (*sourcesapi.Authentication, error) {
+func GetInternalAuthentication(tenant, authID string) (*model.AuthenticationInternalResponse, error) {
 	l.Log.Infof("Requesting SuperKey Authentication: %v", authID)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
@@ -62,25 +148,10 @@ func GetInternalAuthentication(tenant, authID string) (*sourcesapi.Authenticatio
 		authID,
 	))
 
-	var req *http.Request
-	// TODO: remove this once the PSK switchover is done.
-	if conf.SourcesPSK == "" {
-		req = &http.Request{
-			Method: "GET",
-			URL:    reqURL,
-			Header: map[string][]string{
-				"x-rh-identity": {encodedIdentity(tenant)},
-			},
-		}
-	} else {
-		req = &http.Request{
-			Method: "GET",
-			URL:    reqURL,
-			Header: map[string][]string{
-				"x-rh-sources-psk":            {conf.SourcesPSK},
-				"x-rh-sources-account-number": {tenant},
-			},
-		}
+	req := &http.Request{
+		Method: http.MethodGet,
+		URL:    reqURL,
+		Header: headers(tenant),
 	}
 
 	var res *http.Response
@@ -103,12 +174,12 @@ func GetInternalAuthentication(tenant, authID string) (*sourcesapi.Authenticatio
 	}
 
 	data, _ := io.ReadAll(res.Body)
-	auth := sourcesapi.Authentication{}
+	auth := model.AuthenticationInternalResponse{}
 
 	// unmarshaling the data from the request, the id comes back as a string which fills `err`
 	// we can safely ignore that as long as username/pass are there.
 	err = json.Unmarshal(data, &auth)
-	if err != nil && (auth.Username == nil || auth.Password == nil) {
+	if err != nil && (auth.Username == "" || auth.Password == "") {
 		l.Log.Warnf("Error unmarshaling authentication: %v, tenant: %v, error: %v", authID, tenant, err)
 		return nil, err
 	}
@@ -133,4 +204,15 @@ func encodedIdentity(acct string) string {
 
 	_ = encoder.Close()
 	return encoded.String()
+}
+
+func headers(tenant string) map[string][]string {
+	if conf.SourcesPSK == "" {
+		return map[string][]string{"x-rh-identity": {encodedIdentity(tenant)}}
+	} else {
+		return map[string][]string{
+			"x-rh-sources-psk":            {conf.SourcesPSK},
+			"x-rh-sources-account-number": {tenant},
+		}
+	}
 }
