@@ -56,7 +56,7 @@ func GetInternalAuthentication(tenant, authID string) (*sourcesapi.Authenticatio
 	l.Log.Infof("Requesting SuperKey Authentication: %v", authID)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
-		"http://%v:%v/internal/v1.0/authentications/%v?expose_encrypted_attribute[]=password",
+		"http://%v:%v/internal/v2.0/authentications/%v?expose_encrypted_attribute[]=password",
 		conf.SourcesHost,
 		conf.SourcesPort,
 		authID,
@@ -99,7 +99,7 @@ func GetInternalAuthentication(tenant, authID string) (*sourcesapi.Authenticatio
 
 	if err != nil || res.StatusCode != 200 {
 		l.Log.Warnf("Error getting authentication: %v, tenant: %v, error: %v", authID, tenant, err)
-		return nil, fmt.Errorf("Failed to get Authentication %v", authID)
+		return nil, fmt.Errorf("failed to get Authentication %v", authID)
 	}
 
 	data, _ := io.ReadAll(res.Body)
