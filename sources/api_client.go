@@ -16,14 +16,16 @@ import (
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 )
 
-var xRhIdentity = `{"identity": {"account_number": "$ACCT$", "user": {"is_org_admin": true}}}`
-var conf = config.Get()
+var (
+	xRhIdentity = `{"identity": {"account_number": "$ACCT$", "user": {"is_org_admin": true}}}`
+	conf        = config.Get()
+)
 
 func CheckAvailability(tenant string, sourceID string) error {
 	l.Log.Infof("Checking Availability for Source ID: %v", sourceID)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
-		"http://%v:%v/api/sources/v3.1/sources/%v", conf.SourcesHost, conf.SourcesPort, sourceID,
+		"http://%v:%v/api/sources/v3.1/sources/%v/check_availability", conf.SourcesHost, conf.SourcesPort, sourceID,
 	))
 
 	req := &http.Request{
@@ -77,10 +79,7 @@ func PatchApplication(tenant, appID string, payload map[string]interface{}) erro
 	l.Log.Infof("Patching Application %v with Data: %v", appID, payload)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
-		"http://%v:%v/api/sources/v3.1/applications/%v",
-		conf.SourcesHost,
-		conf.SourcesPort,
-		appID,
+		"http://%v:%v/api/sources/v3.1/applications/%v", conf.SourcesHost, conf.SourcesPort, appID,
 	))
 
 	body, err := json.Marshal(payload)
@@ -108,10 +107,7 @@ func PatchSource(tenant, sourceID string, payload map[string]interface{}) error 
 	l.Log.Infof("Patching Source %v", sourceID)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
-		"http://%v:%v/api/sources/v3.1/sources/%v",
-		conf.SourcesHost,
-		conf.SourcesPort,
-		sourceID,
+		"http://%v:%v/api/sources/v3.1/sources/%v", conf.SourcesHost, conf.SourcesPort, sourceID,
 	))
 
 	body, err := json.Marshal(payload)
@@ -142,10 +138,7 @@ func GetInternalAuthentication(tenant, authID string) (*model.AuthenticationInte
 	l.Log.Infof("Requesting SuperKey Authentication: %v", authID)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
-		"http://%v:%v/internal/v2.0/authentications/%v?expose_encrypted_attribute[]=password",
-		conf.SourcesHost,
-		conf.SourcesPort,
-		authID,
+		"http://%v:%v/internal/v2.0/authentications/%v?expose_encrypted_attribute[]=password", conf.SourcesHost, conf.SourcesPort, authID,
 	))
 
 	req := &http.Request{
@@ -208,11 +201,15 @@ func encodedIdentity(acct string) string {
 
 func headers(tenant string) map[string][]string {
 	if conf.SourcesPSK == "" {
-		return map[string][]string{"x-rh-identity": {encodedIdentity(tenant)}}
+		return map[string][]string{
+			"x-rh-identity": {encodedIdentity(tenant)},
+			"Content-Type":  {"application/json"},
+		}
 	} else {
 		return map[string][]string{
 			"x-rh-sources-psk":            {conf.SourcesPSK},
 			"x-rh-sources-account-number": {tenant},
+			"Content-Type":                {"application/json"},
 		}
 	}
 }
