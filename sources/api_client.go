@@ -35,10 +35,15 @@ func CheckAvailability(tenant string, sourceID string) error {
 	}
 
 	resp, err := http.DefaultClient.Do(req)
-	if err != nil || resp.StatusCode != 202 {
+	if err != nil {
 		return fmt.Errorf("failed to check availability for source %v: %v", sourceID, err)
 	}
+
 	defer resp.Body.Close()
+
+	if resp.StatusCode != 202 {
+		return fmt.Errorf("failed to check availability for source %v: bad return code %v", sourceID, resp.StatusCode)
+	}
 
 	return nil
 }
@@ -65,12 +70,14 @@ func CreateAuthentication(tenant string, auth *model.AuthenticationCreateRequest
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to create Authentication: %v", err)
-	} else if resp.StatusCode > 299 {
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode > 299 {
 		b, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
 		return fmt.Errorf("failed to create Authentication: %v", string(b))
 	}
-	defer resp.Body.Close()
 
 	return nil
 }
@@ -95,10 +102,16 @@ func PatchApplication(tenant, appID string, payload map[string]interface{}) erro
 	}
 
 	resp, err := http.DefaultClient.Do(req)
-	if err != nil || resp.StatusCode > 299 {
+	if err != nil {
 		return fmt.Errorf("failed to patch Application %v: %v", appID, err)
 	}
+
 	defer resp.Body.Close()
+
+	if resp.StatusCode > 299 {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to patch Application %v: %v", appID, string(b))
+	}
 
 	return nil
 }
@@ -123,10 +136,16 @@ func PatchSource(tenant, sourceID string, payload map[string]interface{}) error 
 	}
 
 	resp, err := http.DefaultClient.Do(req)
-	if err != nil || resp.StatusCode > 299 {
+	if err != nil {
 		return fmt.Errorf("failed to patch Source %v: %v", sourceID, err)
 	}
+
 	defer resp.Body.Close()
+
+	if resp.StatusCode > 299 {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to patch Source %v: %v", sourceID, string(b))
+	}
 
 	return nil
 }
