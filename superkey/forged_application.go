@@ -62,10 +62,10 @@ func (f *ForgedApplication) createAuthentications() error {
 	}
 
 	auth := model.AuthenticationCreateRequest{
-		AuthType:     f.Product.AuthPayload.AuthType,
-		Username:     f.Product.AuthPayload.Username,
-		ResourceType: f.Product.AuthPayload.ResourceType,
-		ResourceID:   id,
+		AuthType:      f.Product.AuthPayload.AuthType,
+		Username:      f.Product.AuthPayload.Username,
+		ResourceType:  f.Product.AuthPayload.ResourceType,
+		ResourceIDRaw: id,
 	}
 
 	err = sources.CreateAuthentication(f.Request.TenantID, &auth)
