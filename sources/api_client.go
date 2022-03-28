@@ -79,6 +79,22 @@ func CreateAuthentication(tenant string, auth *model.AuthenticationCreateRequest
 		return fmt.Errorf("failed to create Authentication: %v", string(b))
 	}
 
+	bytes, _ := io.ReadAll(resp.Body)
+	var createdAuth model.AuthenticationResponse
+	err = json.Unmarshal(bytes, &createdAuth)
+	if err != nil {
+		return err
+	}
+
+	l.Log.Infof("Creating ApplicationAuthentication for [%v:%v]", auth.ResourceIDRaw, createdAuth.ID)
+	err = createApplicationAuthentication(tenant, &model.ApplicationAuthenticationCreateRequest{
+		ApplicationIDRaw:    auth.ResourceIDRaw,
+		AuthenticationIDRaw: createdAuth.ID,
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -231,4 +247,38 @@ func headers(tenant string) map[string][]string {
 			"Content-Type":                {"application/json"},
 		}
 	}
+}
+
+func createApplicationAuthentication(tenant string, appAuth *model.ApplicationAuthenticationCreateRequest) error {
+	l.Log.Infof("Creating ApplicationAuthentication: %v", appAuth)
+
+	reqURL, _ := url.Parse(fmt.Sprintf(
+		"http://%v:%v/api/sources/v3.1/application_authentications", conf.SourcesHost, conf.SourcesPort,
+	))
+
+	body, err := json.Marshal(appAuth)
+	if err != nil {
+		return err
+	}
+
+	req := &http.Request{
+		Method: http.MethodPost,
+		URL:    reqURL,
+		Header: headers(tenant),
+		Body:   io.NopCloser(bytes.NewBuffer(body)),
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to create Authentication: %v", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode > 299 {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to create ApplicationAuthentication: %v", string(b))
+	}
+
+	return nil
 }
