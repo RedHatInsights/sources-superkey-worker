@@ -25,7 +25,7 @@ func CheckAvailability(tenant string, sourceID string) error {
 	l.Log.Infof("Checking Availability for Source ID: %v", sourceID)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
-		"http://%v:%v/api/sources/v3.1/sources/%v/check_availability", conf.SourcesHost, conf.SourcesPort, sourceID,
+		"%v://%v:%v/api/sources/v3.1/sources/%v/check_availability", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort, sourceID,
 	))
 
 	req := &http.Request{
@@ -52,7 +52,7 @@ func CreateAuthentication(tenant string, auth *model.AuthenticationCreateRequest
 	l.Log.Infof("Creating Authentication: %v", auth)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
-		"http://%v:%v/api/sources/v3.1/authentications", conf.SourcesHost, conf.SourcesPort,
+		"%v://%v:%v/api/sources/v3.1/authentications", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort,
 	))
 
 	body, err := json.Marshal(auth)
@@ -102,7 +102,7 @@ func PatchApplication(tenant, appID string, payload map[string]interface{}) erro
 	l.Log.Infof("Patching Application %v with Data: %v", appID, payload)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
-		"http://%v:%v/api/sources/v3.1/applications/%v", conf.SourcesHost, conf.SourcesPort, appID,
+		"%v://%v:%v/api/sources/v3.1/applications/%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort, appID,
 	))
 
 	body, err := json.Marshal(payload)
@@ -136,7 +136,7 @@ func PatchSource(tenant, sourceID string, payload map[string]interface{}) error 
 	l.Log.Infof("Patching Source %v", sourceID)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
-		"http://%v:%v/api/sources/v3.1/sources/%v", conf.SourcesHost, conf.SourcesPort, sourceID,
+		"%v://%v:%v/api/sources/v3.1/sources/%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort, sourceID,
 	))
 
 	body, err := json.Marshal(payload)
@@ -173,7 +173,7 @@ func GetInternalAuthentication(tenant, authID string) (*model.AuthenticationInte
 	l.Log.Infof("Requesting SuperKey Authentication: %v", authID)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
-		"http://%v:%v/internal/v2.0/authentications/%v?expose_encrypted_attribute[]=password", conf.SourcesHost, conf.SourcesPort, authID,
+		"%v://%v:%v/internal/v2.0/authentications/%v?expose_encrypted_attribute[]=password", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort, authID,
 	))
 
 	req := &http.Request{
@@ -253,7 +253,7 @@ func createApplicationAuthentication(tenant string, appAuth *model.ApplicationAu
 	l.Log.Infof("Creating ApplicationAuthentication: %v", appAuth)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
-		"http://%v:%v/api/sources/v3.1/application_authentications", conf.SourcesHost, conf.SourcesPort,
+		"%v://%v:%v/api/sources/v3.1/application_authentications", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort,
 	))
 
 	body, err := json.Marshal(appAuth)
