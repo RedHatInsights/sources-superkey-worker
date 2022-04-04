@@ -56,19 +56,14 @@ func (f *ForgedApplication) CreateInSourcesAPI(identityHeader string) error {
 }
 
 func (f *ForgedApplication) createAuthentications() error {
-	id, err := strconv.ParseInt(f.Request.ApplicationID, 10, 64)
-	if err != nil {
-		return err
-	}
-
 	auth := model.AuthenticationCreateRequest{
 		AuthType:      f.Product.AuthPayload.AuthType,
 		Username:      f.Product.AuthPayload.Username,
 		ResourceType:  f.Product.AuthPayload.ResourceType,
-		ResourceIDRaw: id,
+		ResourceIDRaw: f.Request.ApplicationID,
 	}
 
-	err = sources.CreateAuthentication(f.Request.TenantID, &auth)
+	err := sources.CreateAuthentication(f.Request.TenantID, &auth)
 	if err != nil {
 		l.Log.Errorf("Failed to create authentication: %v", err)
 		return err
