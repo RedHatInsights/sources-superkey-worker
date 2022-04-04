@@ -50,19 +50,14 @@ func getProvider(request *superkey.CreateRequest) (superkey.Provider, error) {
 		return nil, err
 	}
 
-	if auth.Username == nil || auth.Password == nil {
+	if auth.Username == "" || auth.Password == "" {
 		l.Log.Errorf("superkey credential %v missing username or password", request.SuperKey)
 		return nil, fmt.Errorf("superkey credential %v missing username or password", request.SuperKey)
 	}
 
 	switch request.Provider {
 	case "amazon":
-		// client, err := amazon.NewClient(os.Getenv("AWS_ACCESS"), os.Getenv("AWS_SECRET"), getStepNames(request.SuperKeySteps)...)
-		client, err := amazon.NewClient(
-			*auth.Username,
-			*auth.Password,
-			getStepNames(request.SuperKeySteps)...,
-		)
+		client, err := amazon.NewClient(auth.Username, auth.Password, getStepNames(request.SuperKeySteps)...)
 		if err != nil {
 			return nil, err
 		}

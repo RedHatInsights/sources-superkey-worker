@@ -39,5 +39,6 @@ jobs:
         with:
           version: latest
           only-new-issues: true
+          timeout: 2m
           skip-go-installation: true
           args: --enable gci,bodyclose,forcetypeassert,misspell
