@@ -31,11 +31,16 @@ func (f *ForgedApplication) MarkCompleted(name string, data map[string]string) {
 }
 
 // CreateInSourcesAPI - creates the forged application in sources
-func (f *ForgedApplication) CreateInSourcesAPI(identityHeader string) error {
+func (f *ForgedApplication) CreateInSourcesAPI() error {
 	l.Log.Info("Sleeping to prevent IAM Race Condition")
 	// IAM is slow, this prevents the race condition of the POST happening
 	// before it's ready.
 	time.Sleep(waitTime() * time.Second)
+
+	// create a sources client for our identity + account number
+	if f.SourcesClient == nil {
+		f.SourcesClient = &sources.SourcesClient{IdentityHeader: f.Request.IdentityHeader, AccountNumber: f.Request.TenantID}
+	}
 
 	l.Log.Infof("Posting resources back to Sources API: %v", f)
 	err := f.storeSuperKeyData()
@@ -63,7 +68,7 @@ func (f *ForgedApplication) createAuthentications() error {
 		ResourceIDRaw: f.Request.ApplicationID,
 	}
 
-	err := sources.CreateAuthentication(f.Request.TenantID, &auth)
+	err := f.SourcesClient.CreateAuthentication(&auth)
 	if err != nil {
 		l.Log.Errorf("Failed to create authentication: %v", err)
 		return err
@@ -73,7 +78,7 @@ func (f *ForgedApplication) createAuthentications() error {
 }
 
 func (f *ForgedApplication) storeSuperKeyData() error {
-	err := sources.PatchApplication(f.Request.TenantID, f.Request.ApplicationID, map[string]interface{}{
+	err := f.SourcesClient.PatchApplication(f.Request.TenantID, f.Request.ApplicationID, map[string]interface{}{
 		"extra": f.Product.Extra,
 	})
 
@@ -86,7 +91,7 @@ func (f *ForgedApplication) storeSuperKeyData() error {
 }
 
 func (f *ForgedApplication) checkAvailability() error {
-	err := sources.CheckAvailability(f.Request.TenantID, f.Product.SourceID)
+	err := f.SourcesClient.CheckAvailability(f.Product.SourceID)
 	if err != nil {
 		l.Log.Errorf("Failed to check Source availability: %v", err)
 		return err
@@ -105,11 +110,10 @@ func (f *ForgedApplication) CreatePayload(username, password, appType *string) {
 		SourceID: f.Request.SourceID,
 		Extra:    f.applicationExtraPayload(),
 		AuthPayload: model.AuthenticationCreateRequest{
-			AuthType: authtype,
-			Username: *username,
-			// TODO: make this a "raw" field that is an interface, set it to string.
-			ResourceID:   resourceId,
-			ResourceType: "Application",
+			AuthType:      authtype,
+			Username:      *username,
+			ResourceIDRaw: resourceId,
+			ResourceType:  "Application",
 		},
 	}
 }

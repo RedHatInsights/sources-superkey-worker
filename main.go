@@ -127,7 +127,7 @@ func createResources(req *superkey.CreateRequest) {
 			}
 		}
 
-		err := req.MarkSourceUnavailable(err, newApp, req.IdentityHeader)
+		err := req.MarkSourceUnavailable(err, newApp)
 		if err != nil {
 			l.Log.Errorf("Error during PATCH unavailable to application/source: %v", err)
 		}
@@ -136,7 +136,7 @@ func createResources(req *superkey.CreateRequest) {
 	}
 	l.Log.Infof("Finished Forging request: %v", req)
 
-	err = newApp.CreateInSourcesAPI(req.IdentityHeader)
+	err = newApp.CreateInSourcesAPI()
 	if err != nil {
 		l.Log.Errorf("Failed to POST req to sources-api: %v, tearing down.", req)
 		provider.TearDown(newApp)

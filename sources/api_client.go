@@ -2,13 +2,11 @@ package sources
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/RedHatInsights/sources-api-go/model"
@@ -16,12 +14,14 @@ import (
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 )
 
-var (
-	xRhIdentity = `{"identity": {"account_number": "$ACCT$", "user": {"is_org_admin": true}}}`
-	conf        = config.Get()
-)
+var conf = config.Get()
 
-func CheckAvailability(tenant string, sourceID string) error {
+type SourcesClient struct {
+	IdentityHeader string
+	AccountNumber  string
+}
+
+func (sc *SourcesClient) CheckAvailability(sourceID string) error {
 	l.Log.Infof("Checking Availability for Source ID: %v", sourceID)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
@@ -31,7 +31,7 @@ func CheckAvailability(tenant string, sourceID string) error {
 	req := &http.Request{
 		Method: http.MethodPost,
 		URL:    reqURL,
-		Header: headers(tenant),
+		Header: sc.headers(),
 	}
 
 	resp, err := http.DefaultClient.Do(req)
@@ -48,7 +48,7 @@ func CheckAvailability(tenant string, sourceID string) error {
 	return nil
 }
 
-func CreateAuthentication(tenant string, auth *model.AuthenticationCreateRequest) error {
+func (sc *SourcesClient) CreateAuthentication(auth *model.AuthenticationCreateRequest) error {
 	l.Log.Infof("Creating Authentication: %v", auth)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
@@ -63,7 +63,7 @@ func CreateAuthentication(tenant string, auth *model.AuthenticationCreateRequest
 	req := &http.Request{
 		Method: http.MethodPost,
 		URL:    reqURL,
-		Header: headers(tenant),
+		Header: sc.headers(),
 		Body:   io.NopCloser(bytes.NewBuffer(body)),
 	}
 
@@ -87,7 +87,7 @@ func CreateAuthentication(tenant string, auth *model.AuthenticationCreateRequest
 	}
 
 	l.Log.Infof("Creating ApplicationAuthentication for [%v:%v]", auth.ResourceIDRaw, createdAuth.ID)
-	err = createApplicationAuthentication(tenant, &model.ApplicationAuthenticationCreateRequest{
+	err = sc.createApplicationAuthentication(&model.ApplicationAuthenticationCreateRequest{
 		ApplicationIDRaw:    auth.ResourceIDRaw,
 		AuthenticationIDRaw: createdAuth.ID,
 	})
@@ -98,7 +98,7 @@ func CreateAuthentication(tenant string, auth *model.AuthenticationCreateRequest
 	return nil
 }
 
-func PatchApplication(tenant, appID string, payload map[string]interface{}) error {
+func (sc *SourcesClient) PatchApplication(tenant, appID string, payload map[string]interface{}) error {
 	l.Log.Infof("Patching Application %v with Data: %v", appID, payload)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
@@ -113,7 +113,7 @@ func PatchApplication(tenant, appID string, payload map[string]interface{}) erro
 	req := &http.Request{
 		Method: http.MethodPatch,
 		URL:    reqURL,
-		Header: headers(tenant),
+		Header: sc.headers(),
 		Body:   io.NopCloser(bytes.NewBuffer(body)),
 	}
 
@@ -132,7 +132,7 @@ func PatchApplication(tenant, appID string, payload map[string]interface{}) erro
 	return nil
 }
 
-func PatchSource(tenant, sourceID string, payload map[string]interface{}) error {
+func (sc *SourcesClient) PatchSource(tenant, sourceID string, payload map[string]interface{}) error {
 	l.Log.Infof("Patching Source %v", sourceID)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
@@ -147,7 +147,7 @@ func PatchSource(tenant, sourceID string, payload map[string]interface{}) error 
 	req := &http.Request{
 		Method: http.MethodPatch,
 		URL:    reqURL,
-		Header: headers(tenant),
+		Header: sc.headers(),
 		Body:   io.NopCloser(bytes.NewBuffer(body)),
 	}
 
@@ -169,7 +169,7 @@ func PatchSource(tenant, sourceID string, payload map[string]interface{}) error 
 // GetInternalAuthentication requests an authentication via the internal sources api
 // that way we can expose the password.
 // returns: populated sources api Authentication object, error
-func GetInternalAuthentication(tenant, authID string) (*model.AuthenticationInternalResponse, error) {
+func (sc *SourcesClient) GetInternalAuthentication(authID string) (*model.AuthenticationInternalResponse, error) {
 	l.Log.Infof("Requesting SuperKey Authentication: %v", authID)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
@@ -179,7 +179,7 @@ func GetInternalAuthentication(tenant, authID string) (*model.AuthenticationInte
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL:    reqURL,
-		Header: headers(tenant),
+		Header: sc.headers(),
 	}
 
 	var res *http.Response
@@ -197,7 +197,7 @@ func GetInternalAuthentication(tenant, authID string) (*model.AuthenticationInte
 	}
 
 	if err != nil || res.StatusCode != 200 {
-		l.Log.Warnf("Error getting authentication: %v, tenant: %v, error: %v", authID, tenant, err)
+		l.Log.Warnf("Error getting authentication: %v, tenant: %v, error: %v", authID, sc.AccountNumber, err)
 		return nil, fmt.Errorf("failed to get Authentication %v", authID)
 	}
 
@@ -208,7 +208,7 @@ func GetInternalAuthentication(tenant, authID string) (*model.AuthenticationInte
 	// we can safely ignore that as long as username/pass are there.
 	err = json.Unmarshal(data, &auth)
 	if err != nil && (auth.Username == "" || auth.Password == "") {
-		l.Log.Warnf("Error unmarshaling authentication: %v, tenant: %v, error: %v", authID, tenant, err)
+		l.Log.Warnf("Error unmarshaling authentication: %v, tenant: %v, error: %v", authID, sc.AccountNumber, err)
 		return nil, err
 	}
 
@@ -216,40 +216,30 @@ func GetInternalAuthentication(tenant, authID string) (*model.AuthenticationInte
 	return &auth, nil
 }
 
-// TODO: This will be removed when the PSK switchover is done.
-// encodedIdentity - base64 decodes a x-rh-identity substituting the account number
-// passed in
-// returns: base64 x-rh-id string
-func encodedIdentity(acct string) string {
-	encoded := bytes.NewBuffer([]byte(""))
-	encoder := base64.NewEncoder(base64.StdEncoding, encoded)
-	identity := strings.Replace(xRhIdentity, "$ACCT$", acct, 1)
-
-	_, err := encoder.Write([]byte(identity))
-	if err != nil {
-		panic("Failed encoding json x-rh-identity")
-	}
-
-	_ = encoder.Close()
-	return encoded.String()
-}
-
-func headers(tenant string) map[string][]string {
+func (sc *SourcesClient) headers() map[string][]string {
 	if conf.SourcesPSK == "" {
+		var xrhid string
+		if sc.IdentityHeader == "" {
+			xrhid = encodedIdentity(sc.AccountNumber)
+		} else {
+			xrhid = sc.IdentityHeader
+		}
+
 		return map[string][]string{
-			"x-rh-identity": {encodedIdentity(tenant)},
+			"x-rh-identity": {xrhid},
 			"Content-Type":  {"application/json"},
 		}
 	} else {
 		return map[string][]string{
 			"x-rh-sources-psk":            {conf.SourcesPSK},
-			"x-rh-sources-account-number": {tenant},
+			"x-rh-sources-account-number": {sc.AccountNumber},
 			"Content-Type":                {"application/json"},
+			"x-rh-identity":               {sc.IdentityHeader},
 		}
 	}
 }
 
-func createApplicationAuthentication(tenant string, appAuth *model.ApplicationAuthenticationCreateRequest) error {
+func (sc *SourcesClient) createApplicationAuthentication(appAuth *model.ApplicationAuthenticationCreateRequest) error {
 	l.Log.Infof("Creating ApplicationAuthentication: %v", appAuth)
 
 	reqURL, _ := url.Parse(fmt.Sprintf(
@@ -264,7 +254,7 @@ func createApplicationAuthentication(tenant string, appAuth *model.ApplicationAu
 	req := &http.Request{
 		Method: http.MethodPost,
 		URL:    reqURL,
-		Header: headers(tenant),
+		Header: sc.headers(),
 		Body:   io.NopCloser(bytes.NewBuffer(body)),
 	}
 
