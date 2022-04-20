@@ -10,7 +10,7 @@ import (
 // MarkSourceUnavailable marks the application and source as unavailable, while
 // also marking the application's availability_status_error to what AWS updated
 // us with.
-func (req *CreateRequest) MarkSourceUnavailable(incomingErr error, newApplication *ForgedApplication, identityHeader string) error {
+func (req *CreateRequest) MarkSourceUnavailable(incomingErr error, newApplication *ForgedApplication) error {
 	availabilityStatus := "unavailable"
 	availabilityStatusError := fmt.Sprintf("Resource Creation erorr: failed to create resources in amazon, error: %v", incomingErr)
 	extra := make(map[string]interface{})
@@ -21,9 +21,13 @@ func (req *CreateRequest) MarkSourceUnavailable(incomingErr error, newApplicatio
 		extra = newApplication.applicationExtraPayload()
 	}
 
+	if newApplication.SourcesClient == nil {
+		newApplication.SourcesClient = &sources.SourcesClient{IdentityHeader: req.IdentityHeader, AccountNumber: req.TenantID}
+	}
+
 	l.Log.Infof("Marking Application %v Unavailable with message: %v", req.ApplicationID, availabilityStatusError)
 
-	err := sources.PatchApplication(req.TenantID, req.ApplicationID, map[string]interface{}{
+	err := newApplication.SourcesClient.PatchApplication(req.TenantID, req.ApplicationID, map[string]interface{}{
 		"availability_status":       availabilityStatus,
 		"availability_status_error": availabilityStatusError,
 		"extra":                     extra,
@@ -34,7 +38,7 @@ func (req *CreateRequest) MarkSourceUnavailable(incomingErr error, newApplicatio
 	}
 
 	l.Log.Infof("Marking Source %v Unavailable", req.SourceID)
-	err = sources.PatchSource(req.TenantID, req.SourceID, map[string]interface{}{
+	err = newApplication.SourcesClient.PatchSource(req.TenantID, req.SourceID, map[string]interface{}{
 		"availability_status": availabilityStatus,
 	})
 	if err != nil {
