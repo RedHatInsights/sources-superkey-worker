@@ -41,4 +41,4 @@ jobs:
           only-new-issues: true
           timeout: 2m
           skip-go-installation: true
-          args: --enable gci,bodyclose,forcetypeassert,misspell
+          args: --enable gci,bodyclose,forcetypeassert,misspell --timeout=5m
