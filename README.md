@@ -46,3 +46,7 @@ Currently only a couple functions:
 The meat and potatoes of where the application creation happens, interfaces + structs are in `types.go`.
     - `forge.go` is where the provider gets instantiated based on request type
     - `amazon_provider.go` the current only implemented superkey provider. This file contains the logic to actually create the superkey request based on a request that comes through kafka.
+
+## License
+
+This project is available as open source under the terms of the [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0).
