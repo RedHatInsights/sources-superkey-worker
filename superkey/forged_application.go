@@ -111,7 +111,7 @@ func (f *ForgedApplication) CreatePayload(username, password, appType *string) {
 		Extra:    f.applicationExtraPayload(),
 		AuthPayload: model.AuthenticationCreateRequest{
 			AuthType:      authtype,
-			Username:      *username,
+			Username:      username,
 			ResourceIDRaw: resourceId,
 			ResourceType:  "Application",
 		},
