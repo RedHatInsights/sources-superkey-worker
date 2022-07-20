@@ -33,7 +33,7 @@ func main() {
 	initMetrics()
 	initHealthCheck()
 
-	l.Log.Infof("Listening to Kafka at: %v", conf.KafkaBrokers)
+	l.Log.Infof("Listening to Kafka at: %s:%d", conf.KafkaBrokerConfig.Hostname, conf.KafkaBrokerConfig.Port)
 	l.Log.Infof("Talking to Sources API at: [%v] using PSK [%v]", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort), conf.SourcesPSK)
 
 	l.Log.Info("SuperKey Worker started.")
@@ -44,20 +44,20 @@ func main() {
 		requestQueue = SuperKeyRequestQueue
 	}
 
-	mgr := kafka.Manager{Config: kafka.Config{
-		KafkaBrokers: conf.KafkaBrokers,
-		ConsumerConfig: kafka.ConsumerConfig{
-			Topic:   requestQueue,
-			GroupID: conf.KafkaGroupID,
-		},
-	}}
+	reader, err := kafka.GetReader(&conf.KafkaBrokerConfig, conf.KafkaGroupID, requestQueue)
+	if err != nil {
+		l.Log.Fatalf(`could not get Kafka reader: %s`, err)
+	}
 
 	// anonymous function, kinda like passing a block in ruby.
-	err := mgr.Consume(func(msg kafka.Message) {
-		l.Log.Infof("Started processing message %s", string(msg.Value))
-		processSuperkeyRequest(msg)
-		l.Log.Infof("Finished processing message %s", string(msg.Value))
-	})
+	kafka.Consume(
+		reader,
+		func(msg kafka.Message) {
+			l.Log.Infof("Started processing message %s", string(msg.Value))
+			processSuperkeyRequest(msg)
+			l.Log.Infof("Finished processing message %s", string(msg.Value))
+		},
+	)
 
 	if err != nil {
 		l.Log.Fatal(err)
