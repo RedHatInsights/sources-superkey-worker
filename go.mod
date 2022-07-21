@@ -3,7 +3,7 @@ module github.com/redhatinsights/sources-superkey-worker
 go 1.16
 
 require (
-	github.com/RedHatInsights/sources-api-go v0.0.0-20220404132358-2ab7f4e12d0b
+	github.com/RedHatInsights/sources-api-go v0.0.0-20220719202036-2fc23221cc20
 	github.com/aws/aws-sdk-go v1.43.17
 	github.com/aws/aws-sdk-go-v2 v1.15.0
 	github.com/aws/aws-sdk-go-v2/config v1.15.0
@@ -14,7 +14,7 @@ require (
 	github.com/klauspost/compress v1.15.1 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/prometheus/client_golang v1.12.1
-	github.com/redhatinsights/app-common-go v1.6.0
+	github.com/redhatinsights/app-common-go v1.6.3
 	github.com/redhatinsights/platform-go-middlewares v0.12.0
 	github.com/segmentio/kafka-go v0.4.30
 	github.com/sirupsen/logrus v1.8.1

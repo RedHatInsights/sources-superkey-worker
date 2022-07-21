@@ -1,8 +1,9 @@
 package config
 
 import (
-	"fmt"
+	"log"
 	"os"
+	"strconv"
 
 	clowder "github.com/redhatinsights/app-common-go/pkg/api/v1"
 	"github.com/spf13/viper"
@@ -11,7 +12,7 @@ import (
 // SuperKeyWorkerConfig is the struct for storing runtime configuration
 type SuperKeyWorkerConfig struct {
 	Hostname           string
-	KafkaBrokers       []string
+	KafkaBrokerConfig  clowder.BrokerConfig
 	KafkaTopics        map[string]string
 	KafkaGroupID       string
 	MetricsPort        int
@@ -41,7 +42,7 @@ func Get() *SuperKeyWorkerConfig {
 		options.SetDefault("AwsRegion", cfg.Logging.Cloudwatch.Region)
 		options.SetDefault("AwsAccessKeyId", cfg.Logging.Cloudwatch.AccessKeyId)
 		options.SetDefault("AwsSecretAccessKey", cfg.Logging.Cloudwatch.SecretAccessKey)
-		options.SetDefault("KafkaBrokers", []string{fmt.Sprintf("%s:%v", cfg.Kafka.Brokers[0].Hostname, *cfg.Kafka.Brokers[0].Port)})
+		options.SetDefault("KafkaBrokerConfig", cfg.Kafka.Brokers[0])
 		options.SetDefault("LogGroup", cfg.Logging.Cloudwatch.LogGroup)
 		options.SetDefault("MetricsPort", cfg.MetricsPort)
 
@@ -49,7 +50,22 @@ func Get() *SuperKeyWorkerConfig {
 		options.SetDefault("AwsRegion", "us-east-1")
 		options.SetDefault("AwsAccessKeyId", os.Getenv("CW_AWS_ACCESS_KEY_ID"))
 		options.SetDefault("AwsSecretAccessKey", os.Getenv("CW_AWS_SECRET_ACCESS_KEY"))
-		options.SetDefault("KafkaBrokers", []string{fmt.Sprintf("%v:%v", os.Getenv("QUEUE_HOST"), os.Getenv("QUEUE_PORT"))})
+
+		kafkaPort := os.Getenv("QUEUE_PORT")
+		if kafkaPort != "" {
+			port, err := strconv.Atoi(kafkaPort)
+			if err != nil {
+				log.Fatalf(`the provided "QUEUE_PORT", "%s", is not a valid integer: %s`, kafkaPort, err)
+			}
+
+			brokerConfig := clowder.BrokerConfig{
+				Hostname: os.Getenv("QUEUE_HOST"),
+				Port:     &port,
+			}
+
+			options.SetDefault("KafkaBrokerConfig", brokerConfig)
+		}
+
 		options.SetDefault("LogGroup", os.Getenv("CLOUD_WATCH_LOG_GROUP"))
 		options.SetDefault("MetricsPort", 9394)
 
@@ -68,11 +84,18 @@ func Get() *SuperKeyWorkerConfig {
 	hostname, _ := os.Hostname()
 	options.SetDefault("Hostname", hostname)
 
+	// Grab the Kafka broker configuration Settings.
+	var brokerConifg clowder.BrokerConfig
+	bcRaw, ok := options.Get("KafkaBrokerConfig").(clowder.BrokerConfig)
+	if ok {
+		brokerConifg = bcRaw
+	}
+
 	options.AutomaticEnv()
 
 	return &SuperKeyWorkerConfig{
 		Hostname:           options.GetString("Hostname"),
-		KafkaBrokers:       options.GetStringSlice("KafkaBrokers"),
+		KafkaBrokerConfig:  brokerConifg,
 		KafkaTopics:        options.GetStringMapString("KafkaTopics"),
 		KafkaGroupID:       options.GetString("KafkaGroupID"),
 		MetricsPort:        options.GetInt("MetricsPort"),
