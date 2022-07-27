@@ -13,6 +13,7 @@ import (
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/provider"
 	"github.com/redhatinsights/sources-superkey-worker/superkey"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -68,8 +69,11 @@ func main() {
 func processSuperkeyRequest(msg kafka.Message) {
 	eventType := msg.GetHeader("event_type")
 	identityHeader := msg.GetHeader("x-rh-identity")
-	if identityHeader == "" {
-		l.Log.Warnf("No x-rh-identity header found for message, skipping...")
+	orgIdHeader := msg.GetHeader("x-rh-sources-org-id")
+
+	if identityHeader == "" && orgIdHeader == "" {
+		l.Log.WithFields(logrus.Fields{"kafka_message": msg}).Warn(`no "x-rh-identity" or "x-rh-sources-org-id" headers found, skipping...`)
+		return
 	}
 
 	switch eventType {
@@ -87,6 +91,7 @@ func processSuperkeyRequest(msg kafka.Message) {
 			return
 		}
 		req.IdentityHeader = identityHeader
+		req.OrgIdHeader = orgIdHeader
 
 		createResources(req)
 		l.Log.Infof("Finished processing `create_application` request for tenant %v type %v", req.TenantID, req.ApplicationType)

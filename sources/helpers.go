@@ -1,27 +1,28 @@
 package sources
 
 import (
-	"bytes"
 	"encoding/base64"
-	"strings"
+	"encoding/json"
+
+	"github.com/redhatinsights/platform-go-middlewares/identity"
+	"github.com/redhatinsights/sources-superkey-worker/logger"
+	"github.com/sirupsen/logrus"
 )
 
-var xRhIdentity = `{"identity": {"account_number": "$ACCT$", "user": {"is_org_admin": true}}}`
-
-// TODO: This will be removed when the PSK switchover is done.
-// encodedIdentity - base64 decodes a x-rh-identity substituting the account number
-// passed in
-// returns: base64 x-rh-id string
-func encodedIdentity(acct string) string {
-	encoded := bytes.NewBuffer([]byte(""))
-	encoder := base64.NewEncoder(base64.StdEncoding, encoded)
-	identity := strings.Replace(xRhIdentity, "$ACCT$", acct, 1)
-
-	_, err := encoder.Write([]byte(identity))
-	if err != nil {
-		panic("Failed encoding json x-rh-identity")
+// encodeIdentity encodes the provided EBS account number and OrgIds into an XRHID identity structure.
+func encodeIdentity(ebsAccountNumber string, orgId string) string {
+	id := identity.XRHID{
+		Identity: identity.Identity{
+			AccountNumber: ebsAccountNumber,
+			OrgID:         orgId,
+		},
 	}
 
-	_ = encoder.Close()
-	return encoded.String()
+	xRhId, err := json.Marshal(id)
+	if err != nil {
+		logger.Log.WithFields(logrus.Fields{"struct_to_marshal": id}).Errorf(`failed encoding the identity structure: %s`, err)
+		return ""
+	}
+
+	return base64.StdEncoding.EncodeToString(xRhId)
 }

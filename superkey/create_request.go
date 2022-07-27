@@ -22,7 +22,7 @@ func (req *CreateRequest) MarkSourceUnavailable(incomingErr error, newApplicatio
 	}
 
 	if newApplication.SourcesClient == nil {
-		newApplication.SourcesClient = &sources.SourcesClient{IdentityHeader: req.IdentityHeader, AccountNumber: req.TenantID}
+		newApplication.SourcesClient = &sources.SourcesClient{IdentityHeader: req.IdentityHeader, OrgId: req.OrgIdHeader, AccountNumber: req.TenantID}
 	}
 
 	l.Log.Infof("Marking Application %v Unavailable with message: %v", req.ApplicationID, availabilityStatusError)

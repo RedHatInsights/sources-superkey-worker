@@ -44,7 +44,7 @@ func TearDown(f *superkey.ForgedApplication) []error {
 
 // getProvider returns a provider based on create request's provider + credentials
 func getProvider(request *superkey.CreateRequest) (superkey.Provider, error) {
-	client := sources.SourcesClient{AccountNumber: request.TenantID, IdentityHeader: request.IdentityHeader}
+	client := sources.SourcesClient{AccountNumber: request.TenantID, IdentityHeader: request.IdentityHeader, OrgId: request.OrgIdHeader}
 	auth, err := client.GetInternalAuthentication(request.SuperKey)
 	if err != nil {
 		l.Log.Errorf("Failed to get superkey credentials for %v, auth id %v", request.TenantID, request.SuperKey)
