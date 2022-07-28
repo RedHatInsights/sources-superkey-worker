@@ -16,16 +16,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	// SuperKeyRequestQueue - the queue to listen on for superkey requests
-	SuperKeyRequestQueue = "platform.sources.superkey-requests"
+const (
+	superkeyRequestedTopic = "platform.sources.superkey-requests"
+)
 
+var (
 	// DisableCreation disabled processing `create_application` sk requests
 	DisableCreation = os.Getenv("DISABLE_RESOURCE_CREATION")
 	// DisableDeletion disabled processing `destroy_application` sk requests
 	DisableDeletion = os.Getenv("DISABLE_RESOURCE_DELETION")
 
-	conf = config.Get()
+	conf          = config.Get()
+	superkeyTopic = conf.KafkaTopic(superkeyRequestedTopic)
 )
 
 func main() {
@@ -34,21 +36,15 @@ func main() {
 	initMetrics()
 	initHealthCheck()
 
-	l.Log.Infof("Listening to Kafka at: %s:%d", conf.KafkaBrokerConfig.Hostname, conf.KafkaBrokerConfig.Port)
+	l.Log.Infof("Listening to Kafka at: %s:%d, topic: %v", conf.KafkaBrokerConfig.Hostname, conf.KafkaBrokerConfig.Port, superkeyTopic)
 	l.Log.Infof("Talking to Sources API at: [%v] using PSK [%v]", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort), conf.SourcesPSK)
 
-	l.Log.Info("SuperKey Worker started.")
-
-	// returns real topic name from config (identical in local and app-interface mode)
-	requestQueue, found := conf.KafkaTopics[SuperKeyRequestQueue]
-	if !found {
-		requestQueue = SuperKeyRequestQueue
-	}
-
-	reader, err := kafka.GetReader(&conf.KafkaBrokerConfig, conf.KafkaGroupID, requestQueue)
+	reader, err := kafka.GetReader(&conf.KafkaBrokerConfig, conf.KafkaGroupID, superkeyTopic)
 	if err != nil {
 		l.Log.Fatalf(`could not get Kafka reader: %s`, err)
 	}
+
+	l.Log.Info("SuperKey Worker started.")
 
 	// anonymous function, kinda like passing a block in ruby.
 	kafka.Consume(
