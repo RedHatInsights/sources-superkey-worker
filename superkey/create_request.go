@@ -19,6 +19,10 @@ func (req *CreateRequest) MarkSourceUnavailable(incomingErr error, newApplicatio
 	// how far progress was made.
 	if newApplication != nil {
 		extra = newApplication.applicationExtraPayload()
+	} else {
+		// this can happen if the request fails _very early_ in the request
+		// process, e.g. if the superkey auth is unavailable.
+		newApplication = &ForgedApplication{}
 	}
 
 	if newApplication.SourcesClient == nil {
