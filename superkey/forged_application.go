@@ -39,7 +39,7 @@ func (f *ForgedApplication) CreateInSourcesAPI() error {
 
 	// create a sources client for our identity + account number
 	if f.SourcesClient == nil {
-		f.SourcesClient = &sources.SourcesClient{IdentityHeader: f.Request.IdentityHeader, AccountNumber: f.Request.TenantID}
+		f.SourcesClient = &sources.SourcesClient{IdentityHeader: f.Request.IdentityHeader, OrgId: f.Request.OrgIdHeader, AccountNumber: f.Request.TenantID}
 	}
 
 	l.Log.Infof("Posting resources back to Sources API: %v", f)

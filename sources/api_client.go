@@ -18,6 +18,7 @@ var conf = config.Get()
 
 type SourcesClient struct {
 	IdentityHeader string
+	OrgId          string
 	AccountNumber  string
 }
 
@@ -217,26 +218,37 @@ func (sc *SourcesClient) GetInternalAuthentication(authID string) (*model.Authen
 }
 
 func (sc *SourcesClient) headers() map[string][]string {
+	var headers = make(map[string][]string)
+
+	headers["Content-Type"] = []string{"application/json"}
+
 	if conf.SourcesPSK == "" {
-		var xrhid string
+		var xRhId string
+
 		if sc.IdentityHeader == "" {
-			xrhid = encodedIdentity(sc.AccountNumber)
+			xRhId = encodeIdentity(sc.AccountNumber, sc.OrgId)
 		} else {
-			xrhid = sc.IdentityHeader
+			xRhId = sc.IdentityHeader
 		}
 
-		return map[string][]string{
-			"x-rh-identity": {xrhid},
-			"Content-Type":  {"application/json"},
-		}
+		headers["x-rh-identity"] = []string{xRhId}
 	} else {
-		return map[string][]string{
-			"x-rh-sources-psk":            {conf.SourcesPSK},
-			"x-rh-sources-account-number": {sc.AccountNumber},
-			"Content-Type":                {"application/json"},
-			"x-rh-identity":               {sc.IdentityHeader},
+		headers["x-rh-sources-psk"] = []string{conf.SourcesPSK}
+
+		if sc.AccountNumber != "" {
+			headers["x-rh-sources-account-number"] = []string{sc.AccountNumber}
+		}
+
+		if sc.IdentityHeader != "" {
+			headers["x-rh-identity"] = []string{sc.IdentityHeader}
+		}
+
+		if sc.OrgId != "" {
+			headers["x-rh-org-id"] = []string{sc.OrgId}
 		}
 	}
+
+	return headers
 }
 
 func (sc *SourcesClient) createApplicationAuthentication(appAuth *model.ApplicationAuthenticationCreateRequest) error {
