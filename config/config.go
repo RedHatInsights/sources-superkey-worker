@@ -111,3 +111,12 @@ func Get() *SuperKeyWorkerConfig {
 		SourcesPSK:         options.GetString("SourcesPSK"),
 	}
 }
+
+func (s *SuperKeyWorkerConfig) KafkaTopic(topic string) string {
+	found, ok := s.KafkaTopics[topic]
+	if ok {
+		return found
+	}
+
+	return topic
+}
