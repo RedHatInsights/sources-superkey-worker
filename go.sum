@@ -114,6 +114,8 @@ github.com/RedHatInsights/rbac-client-go v1.0.0/go.mod h1:+7A7JULqhAnpSnWYXM4WsY
 github.com/RedHatInsights/sources-api-go v0.0.0-20211213144039-456336cb8e5c/go.mod h1:4C3CdPsFr5ZhdVa5coel1TkUgwWKwsqXgKQKiwy18bg=
 github.com/RedHatInsights/sources-api-go v0.0.0-20220728181510-29764130db2c h1:wOfIG4estgfLT0TX+zPlrxq5/ixzRaFBypJTen/PLcg=
 github.com/RedHatInsights/sources-api-go v0.0.0-20220728181510-29764130db2c/go.mod h1:0sO6AV5ZgtJBj+LUBd4VuBlJell9fPrYJDEWXWKOz+c=
+github.com/RedHatInsights/sources-api-go v0.0.0-20220818163754-607bade3247d h1:fSIw4Ytgyd9mkvEFZCMJV+r9o4cCk7p2iqLOy6hfNiU=
+github.com/RedHatInsights/sources-api-go v0.0.0-20220818163754-607bade3247d/go.mod h1:0sO6AV5ZgtJBj+LUBd4VuBlJell9fPrYJDEWXWKOz+c=
 github.com/RedHatInsights/tenant-utils v0.0.0-20220322192943-150a1a665a5f/go.mod h1:wgdbAAraizlXVvWfFd01uoaU+4dC3yaSaFxPzvvffG8=
 github.com/Shopify/logrus-bugsnag v0.0.0-20171204204709-577dee27f20d/go.mod h1:HI8ITrYtUY+O+ZhtlqUnD8+KwNPOyugEhfP9fdUIaEQ=
 github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWXgklEdEo=
