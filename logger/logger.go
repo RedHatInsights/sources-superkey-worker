@@ -78,10 +78,6 @@ func (f *CustomLoggerFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func forwardLogsToStderr(logHandler string) bool {
-	return logHandler == "haberdasher"
-}
-
 // InitLogger initializes the Sources SuperKey logger
 func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 	logconfig := viper.New()
@@ -110,14 +106,8 @@ func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 
 	formatter := NewCustomLoggerFormatter()
 
-	logOutput := os.Stdout
-
-	if forwardLogsToStderr(cfg.LogHandler) {
-		logOutput = os.Stderr
-	}
-
 	Log = &logrus.Logger{
-		Out:          logOutput,
+		Out:          os.Stdout,
 		Level:        logLevel,
 		Formatter:    formatter,
 		Hooks:        make(logrus.LevelHooks),
@@ -127,7 +117,7 @@ func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 	// TODO: maybe redo this to work with the go-aws-v2 library.
 	// That would involve updating the platform middleware though, which might
 	// not be fun.
-	if key != "" && secret != "" && !forwardLogsToStderr(cfg.LogHandler) {
+	if key != "" && secret != "" {
 		cred := credentials.NewStaticCredentials(key, secret, "")
 		awsconf := aws.NewConfig().WithRegion(region).WithCredentials(cred)
 		hook, err := lc.NewBatchingHook(group, stream, awsconf, 10*time.Second)
