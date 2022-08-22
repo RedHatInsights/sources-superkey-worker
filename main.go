@@ -41,7 +41,12 @@ func main() {
 	l.Log.Infof("Listening to Kafka at: %s:%d, topic: %v", conf.KafkaBrokerConfig.Hostname, conf.KafkaBrokerConfig.Port, superkeyTopic)
 	l.Log.Infof("Talking to Sources API at: [%v] using PSK [%v]", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort), conf.SourcesPSK)
 
-	reader, err := kafka.GetReader(&conf.KafkaBrokerConfig, conf.KafkaGroupID, superkeyTopic)
+	reader, err := kafka.GetReader(&kafka.Options{
+		BrokerConfig: &conf.KafkaBrokerConfig,
+		Topic:        superkeyTopic,
+		GroupID:      &conf.KafkaGroupID,
+		Logger:       l.Log.WithField("kafka", ""),
+	})
 	if err != nil {
 		l.Log.Fatalf(`could not get Kafka reader: %s`, err)
 	}
