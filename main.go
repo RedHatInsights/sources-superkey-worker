@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/RedHatInsights/sources-api-go/kafka"
@@ -44,21 +46,29 @@ func main() {
 		l.Log.Fatalf(`could not get Kafka reader: %s`, err)
 	}
 
-	l.Log.Info("SuperKey Worker started.")
+	go func() {
+		l.Log.Info("SuperKey Worker started.")
 
-	// anonymous function, kinda like passing a block in ruby.
-	kafka.Consume(
-		reader,
-		func(msg kafka.Message) {
-			l.Log.Infof("Started processing message %s", string(msg.Value))
-			processSuperkeyRequest(msg)
-			l.Log.Infof("Finished processing message %s", string(msg.Value))
-		},
-	)
+		kafka.Consume(
+			reader,
+			func(msg kafka.Message) {
+				l.Log.Infof("Started processing message %s", string(msg.Value))
+				processSuperkeyRequest(msg)
+				l.Log.Infof("Finished processing message %s", string(msg.Value))
+			},
+		)
+	}()
 
-	if err != nil {
-		l.Log.Fatal(err)
-	}
+	interrupts := make(chan os.Signal, 1)
+	signal.Notify(interrupts, os.Interrupt, syscall.SIGTERM)
+
+	// wait for a signal from the OS, gracefully terminating the consumer
+	// if/when that comes in
+	s := <-interrupts
+
+	l.Log.Infof("Received %v, exiting", s)
+	kafka.CloseReader(reader, "superkey reader")
+	os.Exit(0)
 }
 
 // processSuperkeyRequest - processes messages.
