@@ -12,6 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.18.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.0
 	github.com/klauspost/compress v1.15.9 // indirect
+	github.com/lindgrenj6/logrus_zinc v0.0.0-20220822152658-d8a0b604f3f9
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	github.com/prometheus/client_golang v1.12.1

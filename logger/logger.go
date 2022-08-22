@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/lindgrenj6/logrus_zinc"
 	lc "github.com/redhatinsights/platform-go-middlewares/logging/cloudwatch"
 	appconf "github.com/redhatinsights/sources-superkey-worker/config"
 	"github.com/sirupsen/logrus"
@@ -125,6 +126,11 @@ func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 			Log.Info(err)
 		}
 		Log.Hooks.Add(hook)
+	}
+
+	// add a zinc search hook if we're set up for it
+	if zinc, err := logrus_zinc.FromEnv(); err != nil {
+		Log.Hooks.Add(zinc)
 	}
 
 	return Log

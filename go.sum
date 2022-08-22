@@ -112,8 +112,6 @@ github.com/PuerkitoBio/purell v1.1.1/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbt
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/RedHatInsights/rbac-client-go v1.0.0/go.mod h1:+7A7JULqhAnpSnWYXM4WsYol3tEoCR8AVeob0Qby3Zc=
 github.com/RedHatInsights/sources-api-go v0.0.0-20211213144039-456336cb8e5c/go.mod h1:4C3CdPsFr5ZhdVa5coel1TkUgwWKwsqXgKQKiwy18bg=
-github.com/RedHatInsights/sources-api-go v0.0.0-20220728181510-29764130db2c h1:wOfIG4estgfLT0TX+zPlrxq5/ixzRaFBypJTen/PLcg=
-github.com/RedHatInsights/sources-api-go v0.0.0-20220728181510-29764130db2c/go.mod h1:0sO6AV5ZgtJBj+LUBd4VuBlJell9fPrYJDEWXWKOz+c=
 github.com/RedHatInsights/sources-api-go v0.0.0-20220818163754-607bade3247d h1:fSIw4Ytgyd9mkvEFZCMJV+r9o4cCk7p2iqLOy6hfNiU=
 github.com/RedHatInsights/sources-api-go v0.0.0-20220818163754-607bade3247d/go.mod h1:0sO6AV5ZgtJBj+LUBd4VuBlJell9fPrYJDEWXWKOz+c=
 github.com/RedHatInsights/tenant-utils v0.0.0-20220322192943-150a1a665a5f/go.mod h1:wgdbAAraizlXVvWfFd01uoaU+4dC3yaSaFxPzvvffG8=
@@ -959,6 +957,8 @@ github.com/lib/pq v1.10.0/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
 github.com/lib/pq v1.10.2/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
 github.com/lightstep/lightstep-tracer-common/golang/gogo v0.0.0-20190605223551-bc2310a04743/go.mod h1:qklhhLq1aX+mtWk9cPHPzaBjWImj5ULL6C7HFJtXQMM=
 github.com/lightstep/lightstep-tracer-go v0.18.1/go.mod h1:jlF1pusYV4pidLvZ+XD0UBX0ZE6WURAspgAczcDHrL4=
+github.com/lindgrenj6/logrus_zinc v0.0.0-20220822152658-d8a0b604f3f9 h1:1ZOLHrWXURL/KtmTmp5uGvZYltM1Wyjl+leEc2AIqOs=
+github.com/lindgrenj6/logrus_zinc v0.0.0-20220822152658-d8a0b604f3f9/go.mod h1:HXJquze/kJdqYytVKMHUWi0xedbcliBESUuNsJPJY7I=
 github.com/lindgrenj6/sources-api-client-go v0.0.0-20210215174124-caba6974c015/go.mod h1:/YFovfrDZPDRqtBJuTbMGwL5VbP8umAzBFS6cqhfOw4=
 github.com/logrusorgru/aurora/v3 v3.0.0/go.mod h1:vsR12bk5grlLvLXAYrBsb5Oc/N+LxAlxggSjiwMnCUc=
 github.com/lyft/protoc-gen-star v0.5.3/go.mod h1:V0xaHgaf5oCCqmcxYcWiDfTiKsZsRc87/1qhoTACD8w=
