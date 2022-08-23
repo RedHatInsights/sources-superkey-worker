@@ -23,12 +23,6 @@ objects:
           value: ${DISABLE_RESOURCE_CREATION}
         - name: DISABLE_RESOURCE_DELETION
           value: ${DISABLE_RESOURCE_DELETION}
-        - name: HABERDASHER_EMITTER
-          value: ${HABERDASHER_EMITTER}
-        - name: HABERDASHER_KAFKA_BOOTSTRAP
-          value: ${HABERDASHER_KAFKA_BOOTSTRAP}
-        - name: HABERDASHER_KAFKA_TOPIC
-          value: ${HABERDASHER_KAFKA_TOPIC}
         - name: SOURCES_SCHEME
           value: ${SOURCES_SCHEME}
         - name: SOURCES_HOST
@@ -81,15 +75,6 @@ parameters:
 - description: Clowder ENV
   name: ENV_NAME
   required: true
-- description: Emitter for haberdasher logs [stderr|kafka]
-  name: HABERDASHER_EMITTER
-  value: stderr
-- description: Bootstrap server for haberdasher kafka emitter
-  name: HABERDASHER_KAFKA_BOOTSTRAP
-  value: ''
-- description: Kafka topic for haberdasher kafka emitter
-  name: HABERDASHER_KAFKA_TOPIC
-  value: ''
 - description: Image
   name: IMAGE
   value: quay.io/cloudservices/sources-superkey-worker
