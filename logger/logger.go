@@ -129,7 +129,7 @@ func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 	}
 
 	// add a zinc search hook if we're set up for it
-	if zinc, err := logrus_zinc.FromEnv(); err != nil {
+	if zinc, err := logrus_zinc.FromEnv(); err == nil {
 		Log.Hooks.Add(zinc)
 	}
 
