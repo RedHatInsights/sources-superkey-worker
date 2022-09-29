@@ -123,7 +123,7 @@ func InitLogger(cfg *appconf.SuperKeyWorkerConfig) *logrus.Logger {
 		awsconf := aws.NewConfig().WithRegion(region).WithCredentials(cred)
 		hook, err := lc.NewBatchingHook(group, stream, awsconf, 10*time.Second)
 		if err != nil {
-			Log.Info(err)
+			Log.Fatal(err)
 		}
 		Log.Hooks.Add(hook)
 	}
