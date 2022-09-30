@@ -3,7 +3,7 @@ module github.com/redhatinsights/sources-superkey-worker
 go 1.16
 
 require (
-	github.com/RedHatInsights/sources-api-go v0.0.0-20220818163754-607bade3247d
+	github.com/RedHatInsights/sources-api-go v0.0.0-20220930182034-fa0c59d3d240
 	github.com/aws/aws-sdk-go v1.44.65
 	github.com/aws/aws-sdk-go-v2 v1.15.0
 	github.com/aws/aws-sdk-go-v2/config v1.15.0
@@ -26,7 +26,6 @@ require (
 	github.com/xdg/scram v1.0.5 // indirect
 	github.com/xdg/stringprep v1.0.3 // indirect
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
-	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gorm.io/gorm v1.23.8 // indirect
 )
