@@ -121,6 +121,8 @@ github.com/RedHatInsights/sources-api-go v0.0.0-20220930162959-9aaae7e697a8 h1:L
 github.com/RedHatInsights/sources-api-go v0.0.0-20220930162959-9aaae7e697a8/go.mod h1:p/0yHOk53l3M2qEz5Q4+FbQtlcR//VOAqufszRPN/GE=
 github.com/RedHatInsights/sources-api-go v0.0.0-20220930182034-fa0c59d3d240 h1:WknUL+M0WF7dpjj2x4clKEw8DUsBetYuVDzSdth+R9o=
 github.com/RedHatInsights/sources-api-go v0.0.0-20220930182034-fa0c59d3d240/go.mod h1:p/0yHOk53l3M2qEz5Q4+FbQtlcR//VOAqufszRPN/GE=
+github.com/RedHatInsights/sources-api-go v0.0.0-20221003133024-33e259e29dc4 h1:0DDQYt9VFVViyMNxgmYea0PhIcHlK+5VzSZlNqNVzA4=
+github.com/RedHatInsights/sources-api-go v0.0.0-20221003133024-33e259e29dc4/go.mod h1:p/0yHOk53l3M2qEz5Q4+FbQtlcR//VOAqufszRPN/GE=
 github.com/RedHatInsights/tenant-utils v0.0.0-20220322192943-150a1a665a5f h1:bWjJDKfFRaCxcTtEMvogVnPpTMdSWPl78/ZPBhz3PsE=
 github.com/RedHatInsights/tenant-utils v0.0.0-20220322192943-150a1a665a5f/go.mod h1:wgdbAAraizlXVvWfFd01uoaU+4dC3yaSaFxPzvvffG8=
 github.com/Shopify/logrus-bugsnag v0.0.0-20171204204709-577dee27f20d/go.mod h1:HI8ITrYtUY+O+ZhtlqUnD8+KwNPOyugEhfP9fdUIaEQ=
