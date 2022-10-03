@@ -3,7 +3,7 @@ module github.com/redhatinsights/sources-superkey-worker
 go 1.16
 
 require (
-	github.com/RedHatInsights/sources-api-go v0.0.0-20220930182034-fa0c59d3d240
+	github.com/RedHatInsights/sources-api-go v0.0.0-20221003133024-33e259e29dc4
 	github.com/aws/aws-sdk-go v1.44.65
 	github.com/aws/aws-sdk-go-v2 v1.15.0
 	github.com/aws/aws-sdk-go-v2/config v1.15.0
