@@ -15,6 +15,9 @@ container:
 run: build
 	./sources-superkey-worker
 
+inlinerun:
+	go run .
+
 fancyrun: build
 	./sources-superkey-worker | grep '^{' | jq -r .
 
