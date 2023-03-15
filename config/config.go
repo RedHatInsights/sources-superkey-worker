@@ -85,17 +85,17 @@ func Get() *SuperKeyWorkerConfig {
 	options.SetDefault("Hostname", hostname)
 
 	// Grab the Kafka broker configuration Settings.
-	var brokerConifg clowder.BrokerConfig
+	var brokerConfig clowder.BrokerConfig
 	bcRaw, ok := options.Get("KafkaBrokerConfig").(clowder.BrokerConfig)
 	if ok {
-		brokerConifg = bcRaw
+		brokerConfig = bcRaw
 	}
 
 	options.AutomaticEnv()
 
 	return &SuperKeyWorkerConfig{
 		Hostname:           options.GetString("Hostname"),
-		KafkaBrokerConfig:  brokerConifg,
+		KafkaBrokerConfig:  brokerConfig,
 		KafkaTopics:        options.GetStringMapString("KafkaTopics"),
 		KafkaGroupID:       options.GetString("KafkaGroupID"),
 		MetricsPort:        options.GetInt("MetricsPort"),
