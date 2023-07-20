@@ -167,6 +167,11 @@ func substiteInPayload(payload string, f *superkey.ForgedApplication, substituti
 		case "s3":
 			s3name := f.StepsCompleted["s3"]["output"]
 			payload = strings.ReplaceAll(payload, name, s3name)
+		case "generate_external_id":
+			externalID, ok := f.Request.Extra["external_id"]
+			if ok {
+				payload = strings.ReplaceAll(payload, name, externalID)
+			}
 		}
 	}
 
