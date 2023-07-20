@@ -78,8 +78,14 @@ func (f *ForgedApplication) createAuthentications() error {
 }
 
 func (f *ForgedApplication) storeSuperKeyData() error {
+	extra := f.Product.Extra
+	externalID, ok := f.Request.Extra["external_id"]
+	if ok {
+		extra["external_id"] = externalID
+	}
+
 	err := f.SourcesClient.PatchApplication(f.Request.TenantID, f.Request.ApplicationID, map[string]interface{}{
-		"extra": f.Product.Extra,
+		"extra": extra,
 	})
 
 	if err != nil {
