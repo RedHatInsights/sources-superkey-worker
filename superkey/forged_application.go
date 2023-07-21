@@ -61,11 +61,18 @@ func (f *ForgedApplication) CreateInSourcesAPI() error {
 }
 
 func (f *ForgedApplication) createAuthentications() error {
+	extra := f.Product.Extra
+	externalID, ok := f.Request.Extra["external_id"]
+	if ok {
+		extra["external_id"] = externalID
+	}
+
 	auth := model.AuthenticationCreateRequest{
 		AuthType:      f.Product.AuthPayload.AuthType,
 		Username:      f.Product.AuthPayload.Username,
 		ResourceType:  f.Product.AuthPayload.ResourceType,
 		ResourceIDRaw: f.Request.ApplicationID,
+		Extra:         extra,
 	}
 
 	err := f.SourcesClient.CreateAuthentication(&auth)
@@ -78,14 +85,8 @@ func (f *ForgedApplication) createAuthentications() error {
 }
 
 func (f *ForgedApplication) storeSuperKeyData() error {
-	extra := f.Product.Extra
-	externalID, ok := f.Request.Extra["external_id"]
-	if ok {
-		extra["external_id"] = externalID
-	}
-
 	err := f.SourcesClient.PatchApplication(f.Request.TenantID, f.Request.ApplicationID, map[string]interface{}{
-		"extra": extra,
+		"extra": f.Product.Extra,
 	})
 
 	if err != nil {

@@ -19,10 +19,6 @@ func (req *CreateRequest) MarkSourceUnavailable(incomingErr error, newApplicatio
 	// how far progress was made.
 	if newApplication != nil {
 		extra = newApplication.applicationExtraPayload()
-		externalID, ok := req.Extra["external_id"]
-		if ok {
-			extra["external_id"] = externalID
-		}
 	} else {
 		// this can happen if the request fails _very early_ in the request
 		// process, e.g. if the superkey auth is unavailable.
