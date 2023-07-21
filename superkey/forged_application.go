@@ -61,7 +61,7 @@ func (f *ForgedApplication) CreateInSourcesAPI() error {
 }
 
 func (f *ForgedApplication) createAuthentications() error {
-	extra := f.Product.Extra
+	extra := map[string]interface{}{}
 	externalID, ok := f.Request.Extra["external_id"]
 	if ok {
 		extra["external_id"] = externalID
