@@ -13,6 +13,8 @@ objects:
     - name: svc
       minReplicas: ${{MIN_REPLICAS}}
       podSpec:
+        securityContext:
+          runAsNonRoot: true
         image: ${IMAGE}:${IMAGE_TAG}
         env:
         - name: LOG_LEVEL
