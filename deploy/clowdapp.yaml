@@ -11,11 +11,13 @@ objects:
     envName: ${ENV_NAME}
     deployments:
     - name: svc
+      spec:
+        template:
+          spec:
+            securityContext:
+              runAsNonRoot: true
       minReplicas: ${{MIN_REPLICAS}}
       podSpec:
-        securityContext:
-          runAsNonRoot: true
-          runAsUser: 1000
         image: ${IMAGE}:${IMAGE_TAG}
         env:
         - name: LOG_LEVEL
