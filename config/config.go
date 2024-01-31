@@ -12,7 +12,7 @@ import (
 // SuperKeyWorkerConfig is the struct for storing runtime configuration
 type SuperKeyWorkerConfig struct {
 	Hostname           string
-	KafkaBrokerConfig  clowder.BrokerConfig
+	KafkaBrokerConfig  []clowder.BrokerConfig
 	KafkaTopics        map[string]string
 	KafkaGroupID       string
 	MetricsPort        int
@@ -42,7 +42,7 @@ func Get() *SuperKeyWorkerConfig {
 		options.SetDefault("AwsRegion", cfg.Logging.Cloudwatch.Region)
 		options.SetDefault("AwsAccessKeyId", cfg.Logging.Cloudwatch.AccessKeyId)
 		options.SetDefault("AwsSecretAccessKey", cfg.Logging.Cloudwatch.SecretAccessKey)
-		options.SetDefault("KafkaBrokerConfig", cfg.Kafka.Brokers[0])
+		options.SetDefault("KafkaBrokerConfig", cfg.Kafka.Brokers)
 		options.SetDefault("LogGroup", cfg.Logging.Cloudwatch.LogGroup)
 		options.SetDefault("MetricsPort", cfg.MetricsPort)
 
@@ -58,10 +58,10 @@ func Get() *SuperKeyWorkerConfig {
 				log.Fatalf(`the provided "QUEUE_PORT", "%s", is not a valid integer: %s`, kafkaPort, err)
 			}
 
-			brokerConfig := clowder.BrokerConfig{
+			brokerConfig := []clowder.BrokerConfig{{
 				Hostname: os.Getenv("QUEUE_HOST"),
 				Port:     &port,
-			}
+			}}
 
 			options.SetDefault("KafkaBrokerConfig", brokerConfig)
 		}
@@ -85,8 +85,8 @@ func Get() *SuperKeyWorkerConfig {
 	options.SetDefault("Hostname", hostname)
 
 	// Grab the Kafka broker configuration Settings.
-	var brokerConfig clowder.BrokerConfig
-	bcRaw, ok := options.Get("KafkaBrokerConfig").(clowder.BrokerConfig)
+	var brokerConfig []clowder.BrokerConfig
+	bcRaw, ok := options.Get("KafkaBrokerConfig").([]clowder.BrokerConfig)
 	if ok {
 		brokerConfig = bcRaw
 	}

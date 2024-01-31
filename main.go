@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -38,11 +40,19 @@ func main() {
 	initMetrics()
 	initHealthCheck()
 
-	l.Log.Infof("Listening to Kafka at: %s:%d, topic: %v", conf.KafkaBrokerConfig.Hostname, conf.KafkaBrokerConfig.Port, superkeyTopic)
+	var brokers strings.Builder
+	for i, broker := range conf.KafkaBrokerConfig {
+		brokers.WriteString(broker.Hostname + ":" + strconv.Itoa(*broker.Port))
+		if i < len(conf.KafkaBrokerConfig)-1 {
+			brokers.WriteString(",")
+		}
+	}
+
+	l.Log.Infof("Listening to Kafka at: %s, topic: %v", brokers.String(), superkeyTopic)
 	l.Log.Infof("Talking to Sources API at: [%v] using PSK [%v]", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort), conf.SourcesPSK)
 
 	reader, err := kafka.GetReader(&kafka.Options{
-		BrokerConfig: &conf.KafkaBrokerConfig,
+		BrokerConfig: conf.KafkaBrokerConfig,
 		Topic:        superkeyTopic,
 		GroupID:      &conf.KafkaGroupID,
 		Logger:       l.Log.WithField("kafka", ""),
