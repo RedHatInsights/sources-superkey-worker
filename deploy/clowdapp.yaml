@@ -70,9 +70,9 @@ objects:
       replicas: 3
 parameters:
 - name: CPU_LIMIT
-  value: "100m"
-- name: CPU_REQUEST
   value: "50m"
+- name: CPU_REQUEST
+  value: "20m"
 - name: DISABLE_RESOURCE_CREATION
   value: "false"
 - name: DISABLE_RESOURCE_DELETION
@@ -92,9 +92,9 @@ parameters:
 - name: CONTAINER_LOG_LEVEL
   value: INFO
 - name: MEMORY_LIMIT
-  value: "50Mi"
+  value: "100Mi"
 - name: MEMORY_REQUEST
-  value: "25Mi"
+  value: "50Mi"
 - name: MIN_REPLICAS
   description: The number of replicas to use for the prometheus deployment
   value: "1"
