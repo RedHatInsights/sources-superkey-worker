@@ -34,7 +34,7 @@ func NewCustomLoggerFormatter() *CustomLoggerFormatter {
 	return f
 }
 
-//Format is the log formatter for the entry
+// Format is the log formatter for the entry
 func (f *CustomLoggerFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	b := &bytes.Buffer{}
 

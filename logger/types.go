@@ -6,7 +6,7 @@ type CustomLoggerFormatter struct {
 	AppName  string
 }
 
-//Marshaler is an interface any type can implement to change its output in our production logs.
+// Marshaler is an interface any type can implement to change its output in our production logs.
 type Marshaler interface {
 	MarshalLog() map[string]interface{}
 }
