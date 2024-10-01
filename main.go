@@ -49,7 +49,7 @@ func main() {
 	}
 
 	l.Log.Infof("Listening to Kafka at: %s, topic: %v", brokers.String(), superkeyTopic)
-	l.Log.Infof("Talking to Sources API at: [%v] using PSK [%v]", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort), conf.SourcesPSK)
+	l.Log.Infof("Talking to Sources API at: [%v]", fmt.Sprintf("%v://%v:%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort))
 
 	reader, err := kafka.GetReader(&kafka.Options{
 		BrokerConfig: conf.KafkaBrokerConfig,
