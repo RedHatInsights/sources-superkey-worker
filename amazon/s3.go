@@ -2,7 +2,6 @@ package amazon
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
@@ -28,7 +27,7 @@ func (a *Client) DestroyS3Bucket(name string) error {
 		Bucket: &name,
 	})
 	if err != nil {
-		return fmt.Errorf("error during s3 bucket deletion during cleanup: %v", err)
+		return err
 	}
 
 	for _, object := range objects.Contents {
@@ -37,7 +36,7 @@ func (a *Client) DestroyS3Bucket(name string) error {
 			Key:    object.Key,
 		})
 		if err != nil {
-			return fmt.Errorf("error during s3 bucket deletion during cleanup: %v", err)
+			return err
 		}
 	}
 
@@ -45,7 +44,7 @@ func (a *Client) DestroyS3Bucket(name string) error {
 		Bucket: &name,
 	})
 	if err != nil {
-		return fmt.Errorf("error during s3 bucket deletion: %v", err)
+		return err
 	}
 
 	return nil

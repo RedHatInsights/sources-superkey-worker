@@ -5,6 +5,7 @@ import (
 
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/sources"
+	"github.com/sirupsen/logrus"
 )
 
 // MarkSourceUnavailable marks the application and source as unavailable, while
@@ -12,7 +13,7 @@ import (
 // us with.
 func (req *CreateRequest) MarkSourceUnavailable(incomingErr error, newApplication *ForgedApplication) error {
 	availabilityStatus := "unavailable"
-	availabilityStatusError := fmt.Sprintf("Resource Creation erorr: failed to create resources in amazon, error: %v", incomingErr)
+	availabilityStatusError := fmt.Sprintf("Resource Creation error: failed to create resources in Amazon. Error: %s", incomingErr)
 	extra := make(map[string]interface{})
 
 	// creating the aws resources was at least partially successful, need to store
@@ -29,27 +30,25 @@ func (req *CreateRequest) MarkSourceUnavailable(incomingErr error, newApplicatio
 		newApplication.SourcesClient = &sources.SourcesClient{IdentityHeader: req.IdentityHeader, OrgId: req.OrgIdHeader, AccountNumber: req.TenantID}
 	}
 
-	l.Log.Infof("Marking Application %v Unavailable with message: %v", req.ApplicationID, availabilityStatusError)
-
-	err := newApplication.SourcesClient.PatchApplication(req.TenantID, req.ApplicationID, map[string]interface{}{
+	err := newApplication.SourcesClient.PatchApplication(req.TenantID, req.SourceID, req.ApplicationID, map[string]interface{}{
 		"availability_status":       availabilityStatus,
 		"availability_status_error": availabilityStatusError,
 		"extra":                     extra,
 	})
 	if err != nil {
-		l.Log.Errorf("Failed to update application with error message %v", err)
-		return err
+		return fmt.Errorf("error while updating the application: %w", err)
 	}
 
-	l.Log.Infof("Marking Source %v Unavailable", req.SourceID)
+	l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID, "source_id": req.SourceID, "application_id": req.ApplicationID, "application_type": req.ApplicationType}).Info(`Application marked as "unavailable"`)
+
 	err = newApplication.SourcesClient.PatchSource(req.TenantID, req.SourceID, map[string]interface{}{
 		"availability_status": availabilityStatus,
 	})
 	if err != nil {
-		l.Log.Errorf("Failed to update source with error message %v", err)
-		return err
+		return fmt.Errorf("error while updating the source: %w", err)
 	}
 
-	l.Log.Infof("Finished Marking Source %v + Application %v Unavailable", req.SourceID, req.ApplicationID)
+	l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID, "source_id": req.SourceID, "application_id": req.ApplicationID, "application_type": req.ApplicationType}).Info(`Source marked as "unavailable"`)
+
 	return nil
 }

@@ -1,6 +1,7 @@
 package superkey
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/RedHatInsights/sources-api-go/model"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/sources"
+	"github.com/sirupsen/logrus"
 )
 
 // ReconstructForgedApplication - returns a ForgedApplication with the fields set
@@ -32,7 +34,8 @@ func (f *ForgedApplication) MarkCompleted(name string, data map[string]string) {
 
 // CreateInSourcesAPI - creates the forged application in sources
 func (f *ForgedApplication) CreateInSourcesAPI() error {
-	l.Log.Info("Sleeping to prevent IAM Race Condition")
+	l.Log.WithFields(logrus.Fields{"tenant_id": f.Request.TenantID, "source_id": f.Request.ApplicationID, "application_id": f.Request.ApplicationID}).Debug("Sleeping to prevent IAM Race Condition")
+
 	// IAM is slow, this prevents the race condition of the POST happening
 	// before it's ready.
 	time.Sleep(waitTime() * time.Second)
@@ -42,21 +45,29 @@ func (f *ForgedApplication) CreateInSourcesAPI() error {
 		f.SourcesClient = &sources.SourcesClient{IdentityHeader: f.Request.IdentityHeader, OrgId: f.Request.OrgIdHeader, AccountNumber: f.Request.TenantID}
 	}
 
-	l.Log.Infof("Posting resources back to Sources API: %v", f)
+	l.Log.WithFields(logrus.Fields{"tenant_id": f.Request.TenantID, "source_id": f.Request.ApplicationID, "application_id": f.Request.ApplicationID}).Debugf("Posting resources back to Sources API: %v", f)
 	err := f.storeSuperKeyData()
 	if err != nil {
-		return err
-	}
-	err = f.createAuthentications()
-	if err != nil {
-		return err
-	}
-	err = f.checkAvailability()
-	if err != nil {
-		return err
+		return fmt.Errorf("error while storing the superkey data in Sources: %w", err)
 	}
 
-	l.Log.Infof("Finished posting resources back to Sources API: %v", f)
+	l.Log.WithFields(logrus.Fields{"tenant_id": f.Request.TenantID, "source_id": f.Request.ApplicationID, "application_id": f.Request.ApplicationID}).Info("Superkey data stored in Sources")
+
+	err = f.createAuthentications()
+	if err != nil {
+		return fmt.Errorf("error while creating the authentications in Sources: %w", err)
+	}
+
+	l.Log.WithFields(logrus.Fields{"tenant_id": f.Request.TenantID, "source_id": f.Request.ApplicationID, "application_id": f.Request.ApplicationID}).Info("Authentications created in Sources")
+
+	err = f.checkAvailability()
+	if err != nil {
+		return fmt.Errorf("error while triggering an availability check in Sources: %w", err)
+	}
+
+	l.Log.WithFields(logrus.Fields{"tenant_id": f.Request.TenantID, "source_id": f.Request.ApplicationID, "application_id": f.Request.ApplicationID}).Info("Availability check requested in Sources")
+	l.Log.WithFields(logrus.Fields{"tenant_id": f.Request.TenantID, "source_id": f.Request.ApplicationID, "application_id": f.Request.ApplicationID}).Debug("Finished creating and updating resourcesin Sources")
+
 	return nil
 }
 
@@ -75,32 +86,29 @@ func (f *ForgedApplication) createAuthentications() error {
 		Extra:         extra,
 	}
 
-	err := f.SourcesClient.CreateAuthentication(&auth)
+	err := f.SourcesClient.CreateAuthentication(f.Request.TenantID, f.Request.SourceID, f.Request.ApplicationID, &auth)
 	if err != nil {
-		l.Log.Errorf("Failed to create authentication: %v", err)
-		return err
+		return fmt.Errorf("error while creating the authentication in Sources: %w", err)
 	}
 
 	return nil
 }
 
 func (f *ForgedApplication) storeSuperKeyData() error {
-	err := f.SourcesClient.PatchApplication(f.Request.TenantID, f.Request.ApplicationID, map[string]interface{}{
+	err := f.SourcesClient.PatchApplication(f.Request.TenantID, f.Request.SourceID, f.Request.ApplicationID, map[string]interface{}{
 		"extra": f.Product.Extra,
 	})
 
 	if err != nil {
-		l.Log.Errorf("Failed to update application with superkey data %v", err)
-		return err
+		return fmt.Errorf("failed to update application with superkey data: %w", err)
 	}
 
 	return nil
 }
 
 func (f *ForgedApplication) checkAvailability() error {
-	err := f.SourcesClient.CheckAvailability(f.Product.SourceID)
+	err := f.SourcesClient.CheckAvailability(f.Request.TenantID, f.Product.SourceID)
 	if err != nil {
-		l.Log.Errorf("Failed to check Source availability: %v", err)
 		return err
 	}
 
