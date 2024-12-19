@@ -93,91 +93,101 @@ func processSuperkeyRequest(msg kafka.Message) {
 	orgIdHeader := msg.GetHeader("x-rh-sources-org-id")
 
 	if identityHeader == "" && orgIdHeader == "" {
-		l.Log.WithFields(logrus.Fields{"kafka_message": msg}).Warn(`no "x-rh-identity" or "x-rh-sources-org-id" headers found, skipping...`)
+		l.Log.WithFields(logrus.Fields{"kafka_message": msg}).Error(`Skipping Superkey request because no "x-rh-identity" or "x-rh-sources-org-id" headers were found`)
+
 		return
 	}
 
+	l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader}).Debugf(`Processing Kafka message: %s`, string(msg.Value))
+
 	switch eventType {
 	case "create_application":
-		if DisableCreation == "true" {
-			l.Log.Infof("Skipping create_application request: %v", msg.Value)
-			return
-		}
-
-		l.Log.Info("Processing `create_application` request")
 		req := &superkey.CreateRequest{}
 		err := msg.ParseTo(req)
 		if err != nil {
-			l.Log.Warnf("Error parsing request: %v", err)
+			l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader}).Errorf(`Error parsing "create_application" request "%s": %v`, string(msg.Value), err)
 			return
 		}
 		req.IdentityHeader = identityHeader
 		req.OrgIdHeader = orgIdHeader
 
+		if DisableCreation == "true" {
+			l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID, "source_id": req.SourceID, "application_id": req.ApplicationID, "application_type": req.ApplicationType}).Infof("Skipping create_application request: %v", msg.Value)
+			return
+		}
+
+		l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID, "source_id": req.SourceID, "application_id": req.ApplicationID, "application_type": req.ApplicationType}).Info(`Processing "create_application" request`)
+
 		createResources(req)
-		l.Log.Infof("Finished processing `create_application` request for tenant %v type %v", req.TenantID, req.ApplicationType)
+
+		l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID, "source_id": req.SourceID, "application_id": req.ApplicationID, "application_type": req.ApplicationType}).Info(`Finished processing "create_application"`)
 
 	case "destroy_application":
+		req := &superkey.DestroyRequest{}
+		err := msg.ParseTo(req)
+		if err != nil {
+			l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader}).Errorf(`Error parsing "destroy_application" request "%s": %v`, string(msg.Value), err)
+			return
+		}
+
 		if DisableDeletion == "true" {
 			l.Log.Infof("Skipping destroy_application request: %v", msg.Value)
 			return
 		}
 
-		l.Log.Info("Processing `destroy_application` request")
-		req := &superkey.DestroyRequest{}
-		err := msg.ParseTo(req)
-		if err != nil {
-			l.Log.Warnf("Error parsing request: %v", err)
-			return
-		}
+		l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID}).Info(`Processing "destroy_application" request`)
 
 		destroyResources(req)
-		l.Log.Infof("Finished processing `destroy_application` request for GUID %v", req.GUID)
+
+		l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID}).Info(`Finished processing "destroy_application" request`)
 
 	default:
-		l.Log.Warn("Unknown event_type")
+		l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader}).Errorf(`Unknown event type "%s" received in the header, skipping request...`, eventType)
 	}
 }
 
 func createResources(req *superkey.CreateRequest) {
-	l.Log.Infof("Forging request: %v", req)
+	l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID, "source_id": req.SourceID, "application_id": req.ApplicationID}).Debugf("Forging request: %v", req)
+
 	newApp, err := provider.Forge(req)
 	if err != nil {
-		l.Log.Errorf("Error forging request %v, error: %v", req, err)
-		l.Log.Errorf("Tearing down superkey request %v", req)
+		l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID, "source_id": req.SourceID, "application_id": req.ApplicationID}).Errorf(`Tearing down Superkey request due to an error while forging the request \"%v\": %s`, req, err)
 
 		errors := provider.TearDown(newApp)
 		if len(errors) != 0 {
 			for _, err := range errors {
-				l.Log.Errorf("Error during teardown: %v", err)
+				l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID, "source_id": req.SourceID, "application_id": req.ApplicationID}).Errorf(`Unable to tear down application: %s`, err)
 			}
 		}
 
 		err := req.MarkSourceUnavailable(err, newApp)
 		if err != nil {
-			l.Log.Errorf("Error during PATCH unavailable to application/source: %v", err)
+			l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID, "source_id": req.SourceID, "application_id": req.ApplicationID}).Errorf(`Error while marking the source and application as "unavailable" in Sources: %s`, err)
 		}
 
 		return
 	}
-	l.Log.Infof("Finished Forging request: %v", req)
+
+	l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID, "source_id": req.SourceID, "application_id": req.ApplicationID}).Debug("Finished forging request")
 
 	err = newApp.CreateInSourcesAPI()
 	if err != nil {
-		l.Log.Errorf("Failed to POST req to sources-api: %v, tearing down.", req)
+		l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID, "source_id": req.SourceID, "application_id": req.ApplicationID}).Errorf(`Error while creating or updating the resources in Sources: %s`, err)
 		provider.TearDown(newApp)
 	}
 }
 
 func destroyResources(req *superkey.DestroyRequest) {
-	l.Log.Infof("Un-Forging request: %v", req)
+	l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID}).Debugf(`Unforging request "%v"`, req)
+
 	errors := provider.TearDown(superkey.ReconstructForgedApplication(req))
 	if len(errors) != 0 {
 		for _, err := range errors {
-			l.Log.Errorf("Error during teardown: %v", err)
+			l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID}).Errorf(`Error during teardown: %s"`, err)
 		}
 	}
-	l.Log.Infof("Finished Un-Forging request: %v", req)
+
+	l.Log.WithFields(logrus.Fields{"tenant_id": req.TenantID}).Info("Finished destroying resources")
 }
 
 func initMetrics() {

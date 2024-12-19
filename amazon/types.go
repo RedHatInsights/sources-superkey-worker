@@ -72,7 +72,7 @@ func NewClient(key, sec string, apis ...string) (*Client, error) {
 				a.CostReporting = cost.NewFromConfig(*creds)
 			}
 		default:
-			l.Log.Warnf("Unused api: %v", api)
+			l.Log.Errorf(`Unsupported "%s" API requested when creating an Amazon client`, api)
 		}
 
 	}
