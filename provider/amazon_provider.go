@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -11,7 +12,6 @@ import (
 	"github.com/redhatinsights/sources-superkey-worker/amazon"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/superkey"
-	"github.com/sirupsen/logrus"
 )
 
 // AmazonProvider struct for implementing the Amazon Provider interface
@@ -22,7 +22,7 @@ type AmazonProvider struct {
 // ForgeApplication transforms a superkey request with the amazon provider into a list
 // of resources required for the application, specified by the request.
 // returns: the new forged application payload with info on what was processed, in case something went wrong.
-func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*superkey.ForgedApplication, error) {
+func (a *AmazonProvider) ForgeApplication(ctx context.Context, request *superkey.CreateRequest) (*superkey.ForgedApplication, error) {
 	guid, err := generateGUID()
 	if err != nil {
 		return nil, fmt.Errorf("unable to generate guid: %w", err)
@@ -47,12 +47,12 @@ func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 
 			f.MarkCompleted("s3", map[string]string{"output": name})
 
-			l.Log.WithFields(logrus.Fields{"tenant_id": request.TenantID, "source_id": request.SourceID, "application_id": request.ApplicationID}).Infof(`S3 bucket "%s" created`, name)
+			l.LogWithContext(ctx).Infof(`S3 bucket "%s" created`, name)
 
 			// Cost reporting requires a policy so the Reporting job can
 			// put things into the S3 bucket.
 			if step.Payload == "\"create_cost_policy\"" {
-				l.Log.WithFields(logrus.Fields{"tenant_id": request.TenantID, "source_id": request.SourceID, "application_id": request.ApplicationID}).Debugf(`Creating S3 bucket "%s"`, name)
+				l.LogWithContext(ctx).Debugf(`Creating S3 bucket "%s"`, name)
 
 				payload := substiteInPayload(amazon.CostS3Policy, f, step.Substitutions)
 
@@ -61,7 +61,7 @@ func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 					return f, fmt.Errorf(`failed to attach bucket policy to S3 bucket "%s": %w`, name, err)
 				}
 
-				l.Log.WithFields(logrus.Fields{"tenant_id": request.TenantID, "source_id": request.SourceID, "application_id": request.ApplicationID}).Infof(`S3 bucket policy attached to bucket "%s"`, name)
+				l.LogWithContext(ctx).Infof(`S3 bucket policy attached to bucket "%s"`, name)
 			}
 
 		case "cost_report":
@@ -75,7 +75,7 @@ func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 
 			costReport.ReportName = fmt.Sprintf("%v-%v", costReport.ReportName, f.GUID)
 
-			l.Log.WithFields(logrus.Fields{"tenant_id": request.TenantID, "source_id": request.SourceID, "application_id": request.ApplicationID}).Debugf(`Creating cost and usage report "%s"`, costReport.ReportName)
+			l.LogWithContext(ctx).Debugf(`Creating cost and usage report "%s"`, costReport.ReportName)
 
 			err = a.Client.CreateCostAndUsageReport(&costReport)
 			if err != nil {
@@ -84,13 +84,13 @@ func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 
 			f.MarkCompleted("cost_report", map[string]string{"output": costReport.ReportName})
 
-			l.Log.WithFields(logrus.Fields{"tenant_id": request.TenantID, "source_id": request.SourceID, "application_id": request.ApplicationID}).Infof(`Cost and usage report "%s" created`, costReport.ReportName)
+			l.LogWithContext(ctx).Infof(`Cost and usage report "%s" created`, costReport.ReportName)
 
 		case "policy":
 			name := fmt.Sprintf("%v-policy-%v", getShortName(f.Request.ApplicationType), f.GUID)
 			payload := substiteInPayload(step.Payload, f, step.Substitutions)
 
-			l.Log.WithFields(logrus.Fields{"tenant_id": request.TenantID, "source_id": request.SourceID, "application_id": request.ApplicationID}).Debugf(`Creating policy "%s"`, name)
+			l.LogWithContext(ctx).Debugf(`Creating policy "%s"`, name)
 
 			arn, err := a.Client.CreatePolicy(name, payload)
 			if err != nil {
@@ -99,13 +99,13 @@ func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 
 			f.MarkCompleted("policy", map[string]string{"output": *arn})
 
-			l.Log.WithFields(logrus.Fields{"tenant_id": request.TenantID, "source_id": request.SourceID, "application_id": request.ApplicationID}).Infof(`Policy "%s" created`, name)
+			l.LogWithContext(ctx).Infof(`Policy "%s" created`, name)
 
 		case "role":
 			name := fmt.Sprintf("%v-role-%v", getShortName(f.Request.ApplicationType), f.GUID)
 			payload := substiteInPayload(step.Payload, f, step.Substitutions)
 
-			l.Log.WithFields(logrus.Fields{"tenant_id": request.TenantID, "source_id": request.SourceID, "application_id": request.ApplicationID}).Debugf(`Creating role "%s"`, name)
+			l.LogWithContext(ctx).Debugf(`Creating role "%s"`, name)
 
 			roleArn, err := a.Client.CreateRole(name, payload)
 			if err != nil {
@@ -115,13 +115,13 @@ func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 			// Store the Role ARN since that is what we need to return for the Authentication object.
 			f.MarkCompleted("role", map[string]string{"output": name, "arn": *roleArn})
 
-			l.Log.WithFields(logrus.Fields{"tenant_id": request.TenantID, "source_id": request.SourceID, "application_id": request.ApplicationID}).Infof(`Role "%s" created`, name)
+			l.LogWithContext(ctx).Infof(`Role "%s" created`, name)
 
 		case "bind_role":
 			roleName := f.StepsCompleted["role"]["output"]
 			policyArn := f.StepsCompleted["policy"]["output"]
 
-			l.Log.WithFields(logrus.Fields{"tenant_id": request.TenantID, "source_id": request.SourceID, "application_id": request.ApplicationID}).Debugf(`Binding role "%s" to policy "%s"`, roleName, policyArn)
+			l.LogWithContext(ctx).Debugf(`Binding role "%s" to policy "%s"`, roleName, policyArn)
 
 			err := a.Client.BindPolicyToRole(policyArn, roleName)
 			if err != nil {
@@ -130,7 +130,7 @@ func (a *AmazonProvider) ForgeApplication(request *superkey.CreateRequest) (*sup
 
 			f.MarkCompleted("bind_role", map[string]string{})
 
-			l.Log.WithFields(logrus.Fields{"tenant_id": request.TenantID, "source_id": request.SourceID, "application_id": request.ApplicationID}).Infof(`Bound role "%s" to policy "%s"`, roleName, policyArn)
+			l.LogWithContext(ctx).Infof(`Bound role "%s" to policy "%s"`, roleName, policyArn)
 
 		default:
 			return f, fmt.Errorf(`superkey step "%s" not implemented`, step.Name)
@@ -189,7 +189,7 @@ func substiteInPayload(payload string, f *superkey.ForgedApplication, substituti
 //
 // Basically the StepsCompleted field keeps track of what parts of the forge operation
 // went smoothly, and we just go through them in reverse and handle them.
-func (a *AmazonProvider) TearDown(f *superkey.ForgedApplication) []error {
+func (a *AmazonProvider) TearDown(ctx context.Context, f *superkey.ForgedApplication) []error {
 	errors := make([]error, 0)
 
 	// -----------------
@@ -204,7 +204,7 @@ func (a *AmazonProvider) TearDown(f *superkey.ForgedApplication) []error {
 			errors = append(errors, fmt.Errorf(`failed to unbind policy "%s" from role "%s": %w`, policyArn, role, err))
 		}
 
-		l.Log.WithFields(logrus.Fields{"tenant_id": f.Request.TenantID}).Infof(`Policy "%s" unbound from role "%s"`, policyArn, role)
+		l.LogWithContext(ctx).Infof(`Policy "%s" unbound from role "%s"`, policyArn, role)
 	}
 
 	// -----------------
@@ -218,7 +218,7 @@ func (a *AmazonProvider) TearDown(f *superkey.ForgedApplication) []error {
 			errors = append(errors, fmt.Errorf(`failed to destroy policy "%s": %w`, policyArn, err))
 		}
 
-		l.Log.WithFields(logrus.Fields{"tenant_id": f.Request.TenantID}).Infof(`Policy "%s" destroyed`, policyArn)
+		l.LogWithContext(ctx).Infof(`Policy "%s" destroyed`, policyArn)
 	}
 
 	if f.StepsCompleted["role"] != nil {
@@ -229,7 +229,7 @@ func (a *AmazonProvider) TearDown(f *superkey.ForgedApplication) []error {
 			errors = append(errors, fmt.Errorf(`failed to destroy role "%s": %w`, roleName, err))
 		}
 
-		l.Log.WithFields(logrus.Fields{"tenant_id": f.Request.TenantID}).Infof(`Role "%s" destroyed`, roleName)
+		l.LogWithContext(ctx).Infof(`Role "%s" destroyed`, roleName)
 	}
 
 	if f.StepsCompleted["cost_report"] != nil {
@@ -240,7 +240,7 @@ func (a *AmazonProvider) TearDown(f *superkey.ForgedApplication) []error {
 			errors = append(errors, fmt.Errorf(`failed to destroy cost and usage report "%s": %w`, reportName, err))
 		}
 
-		l.Log.WithFields(logrus.Fields{"tenant_id": f.Request.TenantID}).Infof(`Cost and usage report "%s" destroyed`, reportName)
+		l.LogWithContext(ctx).Infof(`Cost and usage report "%s" destroyed`, reportName)
 	}
 
 	// -----------------
@@ -255,7 +255,7 @@ func (a *AmazonProvider) TearDown(f *superkey.ForgedApplication) []error {
 			errors = append(errors, fmt.Errorf(`failed to destroy S3 bucket "%s": %w`, bucket, err))
 		}
 
-		l.Log.WithFields(logrus.Fields{"tenant_id": f.Request.TenantID}).Infof(`S3 bucket "%s" destroyed`, bucket)
+		l.LogWithContext(ctx).Infof(`S3 bucket "%s" destroyed`, bucket)
 	}
 
 	return errors

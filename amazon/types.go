@@ -1,6 +1,8 @@
 package amazon
 
 import (
+	"context"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	cost "github.com/aws/aws-sdk-go-v2/service/costandusagereportservice"
 	costtypes "github.com/aws/aws-sdk-go-v2/service/costandusagereportservice/types"
@@ -47,7 +49,7 @@ type Client struct {
 
 // NewClient - takes a key+secret and list of API clients to set up
 // returns: new AmazonClient and error
-func NewClient(key, sec string, apis ...string) (*Client, error) {
+func NewClient(ctx context.Context, key, sec string, apis ...string) (*Client, error) {
 	a := Client{AccessKey: key, SecretKey: sec}
 
 	creds, err := NewAmazonConfig(key, sec)
@@ -72,7 +74,7 @@ func NewClient(key, sec string, apis ...string) (*Client, error) {
 				a.CostReporting = cost.NewFromConfig(*creds)
 			}
 		default:
-			l.Log.Errorf(`Unsupported "%s" API requested when creating an Amazon client`, api)
+			l.LogWithContext(ctx).Errorf(`Unsupported "%s" API requested when creating an Amazon client`, api)
 		}
 
 	}

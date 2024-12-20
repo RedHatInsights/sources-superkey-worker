@@ -2,6 +2,7 @@ package sources
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,7 +24,7 @@ type SourcesClient struct {
 	AccountNumber  string
 }
 
-func (sc *SourcesClient) CheckAvailability(tenantId, sourceId string) error {
+func (sc *SourcesClient) CheckAvailability(ctx context.Context, sourceId string) error {
 	reqURL, _ := url.Parse(fmt.Sprintf(
 		"%v://%v:%v/api/sources/v3.1/sources/%v/check_availability", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort, sourceId,
 	))
@@ -39,7 +40,7 @@ func (sc *SourcesClient) CheckAvailability(tenantId, sourceId string) error {
 		return fmt.Errorf("unable to send request: %w", err)
 	}
 
-	l.Log.WithFields(logrus.Fields{"tenant_id": tenantId, "source_id": sourceId, "request_url": reqURL}).Debugf("Requesting an availability check")
+	l.LogWithContext(ctx).WithField("request_url", reqURL).Debugf("Requesting an availability check")
 
 	defer resp.Body.Close()
 
@@ -50,7 +51,7 @@ func (sc *SourcesClient) CheckAvailability(tenantId, sourceId string) error {
 	return nil
 }
 
-func (sc *SourcesClient) CreateAuthentication(tenantId, sourceId, applicationId string, auth *model.AuthenticationCreateRequest) error {
+func (sc *SourcesClient) CreateAuthentication(ctx context.Context, auth *model.AuthenticationCreateRequest) error {
 	reqURL, _ := url.Parse(fmt.Sprintf(
 		"%v://%v:%v/api/sources/v3.1/authentications", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort,
 	))
@@ -60,7 +61,7 @@ func (sc *SourcesClient) CreateAuthentication(tenantId, sourceId, applicationId 
 		return fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	l.Log.WithFields(logrus.Fields{"tenant_id": tenantId, "source_id": sourceId, "application_id": applicationId, "request_url": reqURL, "body": string(body)}).Debugf("Creating authentication in Sources")
+	l.LogWithContext(ctx).WithFields(logrus.Fields{"request_url": reqURL, "body": string(body)}).Debugf("Creating authentication in Sources")
 
 	req := &http.Request{
 		Method: http.MethodPost,
@@ -88,7 +89,7 @@ func (sc *SourcesClient) CreateAuthentication(tenantId, sourceId, applicationId 
 		return fmt.Errorf("unable to unmarshal authentication creation response from Sources: %w", err)
 	}
 
-	err = sc.createApplicationAuthentication(tenantId, sourceId, applicationId, &model.ApplicationAuthenticationCreateRequest{
+	err = sc.createApplicationAuthentication(ctx, &model.ApplicationAuthenticationCreateRequest{
 		ApplicationIDRaw:    auth.ResourceIDRaw,
 		AuthenticationIDRaw: createdAuth.ID,
 	})
@@ -99,7 +100,7 @@ func (sc *SourcesClient) CreateAuthentication(tenantId, sourceId, applicationId 
 	return nil
 }
 
-func (sc *SourcesClient) PatchApplication(tenantId, sourceId, appID string, payload map[string]interface{}) error {
+func (sc *SourcesClient) PatchApplication(ctx context.Context, appID string, payload map[string]interface{}) error {
 	reqURL, _ := url.Parse(fmt.Sprintf(
 		"%v://%v:%v/api/sources/v3.1/applications/%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort, appID,
 	))
@@ -109,7 +110,7 @@ func (sc *SourcesClient) PatchApplication(tenantId, sourceId, appID string, payl
 		return fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	l.Log.WithFields(logrus.Fields{"tenant_id": tenantId, "source_id": sourceId, "application_id": appID, "request_url": reqURL, "body": string(body)}).Debugf("Patching application in Sources")
+	l.LogWithContext(ctx).WithFields(logrus.Fields{"request_url": reqURL, "body": string(body)}).Debugf("Patching application in Sources")
 
 	req := &http.Request{
 		Method: http.MethodPatch,
@@ -133,7 +134,7 @@ func (sc *SourcesClient) PatchApplication(tenantId, sourceId, appID string, payl
 	return nil
 }
 
-func (sc *SourcesClient) PatchSource(tenantId, sourceId string, payload map[string]interface{}) error {
+func (sc *SourcesClient) PatchSource(ctx context.Context, sourceId string, payload map[string]interface{}) error {
 	reqURL, _ := url.Parse(fmt.Sprintf(
 		"%v://%v:%v/api/sources/v3.1/sources/%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort, sourceId,
 	))
@@ -150,7 +151,7 @@ func (sc *SourcesClient) PatchSource(tenantId, sourceId string, payload map[stri
 		Body:   io.NopCloser(bytes.NewBuffer(body)),
 	}
 
-	l.Log.WithFields(logrus.Fields{"tenant_id": tenantId, "source_id": sourceId, "request_url": reqURL, "body": string(body)}).Debugf("Patching source in Sources")
+	l.LogWithContext(ctx).WithFields(logrus.Fields{"request_url": reqURL, "body": string(body)}).Debugf("Patching source in Sources")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -170,7 +171,7 @@ func (sc *SourcesClient) PatchSource(tenantId, sourceId string, payload map[stri
 // GetInternalAuthentication requests an authentication via the internal sources api
 // that way we can expose the password.
 // returns: populated sources api Authentication object, error
-func (sc *SourcesClient) GetInternalAuthentication(tenantId, sourceId, authID string) (*model.AuthenticationInternalResponse, error) {
+func (sc *SourcesClient) GetInternalAuthentication(ctx context.Context, authID string) (*model.AuthenticationInternalResponse, error) {
 	reqURL, _ := url.Parse(fmt.Sprintf(
 		"%v://%v:%v/internal/v2.0/authentications/%v?expose_encrypted_attribute[]=password", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort, authID,
 	))
@@ -184,7 +185,7 @@ func (sc *SourcesClient) GetInternalAuthentication(tenantId, sourceId, authID st
 	var res *http.Response
 	var err error
 	for retry := 0; retry < 5; retry++ {
-		l.Log.WithFields(logrus.Fields{"tenant_id": tenantId, "source_id": sourceId, "request_url": reqURL}).Debug("Getting internal authentication from Sources")
+		l.LogWithContext(ctx).WithFields(logrus.Fields{"request_url": reqURL, "authentication_id": authID}).Debugf("Getting internal authentication from Sources")
 
 		res, err = http.DefaultClient.Do(req)
 
@@ -192,7 +193,7 @@ func (sc *SourcesClient) GetInternalAuthentication(tenantId, sourceId, authID st
 			defer res.Body.Close()
 			break
 		} else {
-			l.Log.WithFields(logrus.Fields{"tenant_id": tenantId, "source_id": sourceId, "authentication_id": authID}).Warn("Unable to fetch internal authentication. Retrying...")
+			l.LogWithContext(ctx).WithField("authentication_id", authID).Warn("Unable to fetch internal authentication. Retrying...")
 			time.Sleep(3 * time.Second)
 		}
 	}
@@ -248,7 +249,7 @@ func (sc *SourcesClient) headers() map[string][]string {
 	return headers
 }
 
-func (sc *SourcesClient) createApplicationAuthentication(tenantId, sourceId, applicationId string, appAuth *model.ApplicationAuthenticationCreateRequest) error {
+func (sc *SourcesClient) createApplicationAuthentication(ctx context.Context, appAuth *model.ApplicationAuthenticationCreateRequest) error {
 	reqURL, _ := url.Parse(fmt.Sprintf(
 		"%v://%v:%v/api/sources/v3.1/application_authentications", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort,
 	))
@@ -265,7 +266,7 @@ func (sc *SourcesClient) createApplicationAuthentication(tenantId, sourceId, app
 		Body:   io.NopCloser(bytes.NewBuffer(body)),
 	}
 
-	l.Log.WithFields(logrus.Fields{"tenant_id": tenantId, "source_id": sourceId, "application_id": applicationId, "request_url": reqURL, "body": string(body)}).Debugf("Creating application authentication in Sources")
+	l.LogWithContext(ctx).WithFields(logrus.Fields{"request_url": reqURL, "body": string(body)}).Debugf("Creating application authentication in Sources")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
