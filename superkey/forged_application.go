@@ -1,11 +1,14 @@
 package superkey
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/RedHatInsights/sources-api-go/model"
+	"github.com/redhatinsights/sources-superkey-worker/config"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/sources"
 )
@@ -31,40 +34,51 @@ func (f *ForgedApplication) MarkCompleted(name string, data map[string]string) {
 }
 
 // CreateInSourcesAPI - creates the forged application in sources
-func (f *ForgedApplication) CreateInSourcesAPI() error {
-	l.Log.Info("Sleeping to prevent IAM Race Condition")
+func (f *ForgedApplication) CreateInSourcesAPI(ctx context.Context) error {
+	l.LogWithContext(ctx).Debug("Sleeping to prevent IAM Race Condition")
+
 	// IAM is slow, this prevents the race condition of the POST happening
 	// before it's ready.
 	time.Sleep(waitTime() * time.Second)
 
-	// create a sources client for our identity + account number
-	if f.SourcesClient == nil {
-		f.SourcesClient = &sources.SourcesClient{IdentityHeader: f.Request.IdentityHeader, OrgId: f.Request.OrgIdHeader, AccountNumber: f.Request.TenantID}
+	sourcesClient := sources.NewSourcesClient(config.Get())
+
+	l.LogWithContext(ctx).Debugf("Posting resources back to Sources API: %v", f)
+	err := f.storeSuperKeyData(ctx, sourcesClient)
+	if err != nil {
+		return fmt.Errorf("error while storing the superkey data in Sources: %w", err)
 	}
 
-	l.Log.Infof("Posting resources back to Sources API: %v", f)
-	err := f.storeSuperKeyData()
+	l.LogWithContext(ctx).Info("Superkey data stored in Sources")
+
+	err = f.createAuthentications(ctx, sourcesClient)
 	if err != nil {
-		return err
-	}
-	err = f.createAuthentications()
-	if err != nil {
-		return err
-	}
-	err = f.checkAvailability()
-	if err != nil {
-		return err
+		return fmt.Errorf("error while creating the authentications in Sources: %w", err)
 	}
 
-	l.Log.Infof("Finished posting resources back to Sources API: %v", f)
+	l.LogWithContext(ctx).Info("Authentications created in Sources")
+
+	err = f.checkAvailability(ctx, sourcesClient)
+	if err != nil {
+		return fmt.Errorf("error while triggering an availability check in Sources: %w", err)
+	}
+
+	l.LogWithContext(ctx).Info("Availability check requested in Sources")
+	l.LogWithContext(ctx).Debug("Finished creating and updating resources in Sources")
+
 	return nil
 }
 
-func (f *ForgedApplication) createAuthentications() error {
+func (f *ForgedApplication) createAuthentications(ctx context.Context, sourcesRestClient sources.RestClient) error {
 	extra := map[string]interface{}{}
 	externalID, ok := f.Request.Extra["external_id"]
 	if ok {
 		extra["external_id"] = externalID
+	}
+
+	authData := sources.AuthenticationData{
+		IdentityHeader: f.Request.IdentityHeader,
+		OrgId:          f.Request.OrgIdHeader,
 	}
 
 	auth := model.AuthenticationCreateRequest{
@@ -75,32 +89,46 @@ func (f *ForgedApplication) createAuthentications() error {
 		Extra:         extra,
 	}
 
-	err := f.SourcesClient.CreateAuthentication(&auth)
+	createdAuthentication, err := sourcesRestClient.CreateAuthentication(ctx, &authData, &auth)
 	if err != nil {
-		l.Log.Errorf("Failed to create authentication: %v", err)
-		return err
+		return fmt.Errorf("error while creating the authentication in Sources: %w", err)
+	}
+
+	appAuthBody := model.ApplicationAuthenticationCreateRequest{
+		ApplicationIDRaw:    f.Request.ApplicationID,
+		AuthenticationIDRaw: createdAuthentication.ID,
+	}
+
+	err = sourcesRestClient.CreateApplicationAuthentication(ctx, &authData, &appAuthBody)
+	if err != nil {
+		return fmt.Errorf("error while associating the authentication with an application in Sources: %w", err)
 	}
 
 	return nil
 }
 
-func (f *ForgedApplication) storeSuperKeyData() error {
-	err := f.SourcesClient.PatchApplication(f.Request.TenantID, f.Request.ApplicationID, map[string]interface{}{
-		"extra": f.Product.Extra,
-	})
+func (f *ForgedApplication) storeSuperKeyData(ctx context.Context, sourcesRestClient sources.RestClient) error {
+	authData := sources.AuthenticationData{
+		IdentityHeader: f.Request.IdentityHeader,
+		OrgId:          f.Request.OrgIdHeader,
+	}
 
+	err := sourcesRestClient.PatchApplication(ctx, &authData, f.Request.ApplicationID, &sources.PatchApplicationRequest{Extra: f.Product.Extra})
 	if err != nil {
-		l.Log.Errorf("Failed to update application with superkey data %v", err)
-		return err
+		return fmt.Errorf("failed to update application with superkey data: %w", err)
 	}
 
 	return nil
 }
 
-func (f *ForgedApplication) checkAvailability() error {
-	err := f.SourcesClient.CheckAvailability(f.Product.SourceID)
+func (f *ForgedApplication) checkAvailability(ctx context.Context, sourcesRestClient sources.RestClient) error {
+	authData := sources.AuthenticationData{
+		IdentityHeader: f.Request.IdentityHeader,
+		OrgId:          f.Request.OrgIdHeader,
+	}
+
+	err := sourcesRestClient.TriggerSourceAvailabilityCheck(ctx, &authData, f.Product.SourceID)
 	if err != nil {
-		l.Log.Errorf("Failed to check Source availability: %v", err)
 		return err
 	}
 

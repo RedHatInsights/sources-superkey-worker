@@ -11,21 +11,22 @@ import (
 
 // SuperKeyWorkerConfig is the struct for storing runtime configuration
 type SuperKeyWorkerConfig struct {
-	Hostname           string
-	KafkaBrokerConfig  []clowder.BrokerConfig
-	KafkaTopics        map[string]string
-	KafkaGroupID       string
-	MetricsPort        int
-	LogLevel           string
-	LogGroup           string
-	LogHandler         string
-	AwsRegion          string
-	AwsAccessKeyID     string
-	AwsSecretAccessKey string
-	SourcesHost        string
-	SourcesScheme      string
-	SourcesPort        int
-	SourcesPSK         string
+	Hostname                   string
+	KafkaBrokerConfig          []clowder.BrokerConfig
+	KafkaTopics                map[string]string
+	KafkaGroupID               string
+	MetricsPort                int
+	LogLevel                   string
+	LogGroup                   string
+	LogHandler                 string
+	AwsRegion                  string
+	AwsAccessKeyID             string
+	AwsSecretAccessKey         string
+	SourcesHost                string
+	SourcesScheme              string
+	SourcesPort                int
+	SourcesPSK                 string
+	SourcesRequestsMaxAttempts int
 }
 
 // Get - returns the config parsed from runtime vars
@@ -81,6 +82,20 @@ func Get() *SuperKeyWorkerConfig {
 	options.SetDefault("SourcesPort", os.Getenv("SOURCES_PORT"))
 	options.SetDefault("SourcesPSK", os.Getenv("SOURCES_PSK"))
 
+	// Get the number of maximum request attempts we want to make to the Sources' API.
+	sourcesRequestsMaxAttempts, err := strconv.Atoi(os.Getenv("SOURCES_MAX_ATTEMPTS"))
+	if err != nil {
+		log.Printf(`Warning: the provided max attempts value \"%s\" is not an integer. Setting default value of 1.`, os.Getenv("SOURCES_MAX_ATTEMPTS"))
+		sourcesRequestsMaxAttempts = 1
+	}
+
+	if sourcesRequestsMaxAttempts < 1 {
+		log.Printf(`Warning: the provided max attempts value \"%s\" is lower than 1, and we need to at least make one attempt when calling Sources. Setting default value of 1.`, os.Getenv("SOURCES_MAX_ATTEMPTS"))
+		sourcesRequestsMaxAttempts = 1
+	}
+
+	options.SetDefault("SourcesRequestsMaxAttempts", sourcesRequestsMaxAttempts)
+
 	hostname, _ := os.Hostname()
 	options.SetDefault("Hostname", hostname)
 
@@ -94,21 +109,22 @@ func Get() *SuperKeyWorkerConfig {
 	options.AutomaticEnv()
 
 	return &SuperKeyWorkerConfig{
-		Hostname:           options.GetString("Hostname"),
-		KafkaBrokerConfig:  brokerConfig,
-		KafkaTopics:        options.GetStringMapString("KafkaTopics"),
-		KafkaGroupID:       options.GetString("KafkaGroupID"),
-		MetricsPort:        options.GetInt("MetricsPort"),
-		LogLevel:           options.GetString("LogLevel"),
-		LogHandler:         options.GetString("LogHandler"),
-		LogGroup:           options.GetString("LogGroup"),
-		AwsRegion:          options.GetString("AwsRegion"),
-		AwsAccessKeyID:     options.GetString("AwsAccessKeyID"),
-		AwsSecretAccessKey: options.GetString("AwsSecretAccessKey"),
-		SourcesHost:        options.GetString("SourcesHost"),
-		SourcesScheme:      options.GetString("SourcesScheme"),
-		SourcesPort:        options.GetInt("SourcesPort"),
-		SourcesPSK:         options.GetString("SourcesPSK"),
+		Hostname:                   options.GetString("Hostname"),
+		KafkaBrokerConfig:          brokerConfig,
+		KafkaTopics:                options.GetStringMapString("KafkaTopics"),
+		KafkaGroupID:               options.GetString("KafkaGroupID"),
+		MetricsPort:                options.GetInt("MetricsPort"),
+		LogLevel:                   options.GetString("LogLevel"),
+		LogHandler:                 options.GetString("LogHandler"),
+		LogGroup:                   options.GetString("LogGroup"),
+		AwsRegion:                  options.GetString("AwsRegion"),
+		AwsAccessKeyID:             options.GetString("AwsAccessKeyID"),
+		AwsSecretAccessKey:         options.GetString("AwsSecretAccessKey"),
+		SourcesHost:                options.GetString("SourcesHost"),
+		SourcesScheme:              options.GetString("SourcesScheme"),
+		SourcesPort:                options.GetInt("SourcesPort"),
+		SourcesPSK:                 options.GetString("SourcesPSK"),
+		SourcesRequestsMaxAttempts: options.GetInt("SourcesRequestsMaxAttempts"),
 	}
 }
 

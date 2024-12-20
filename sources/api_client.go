@@ -2,6 +2,7 @@ package sources
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,275 +13,228 @@ import (
 	"github.com/RedHatInsights/sources-api-go/model"
 	"github.com/redhatinsights/sources-superkey-worker/config"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
+	"github.com/sirupsen/logrus"
 )
 
-var conf = config.Get()
+// sourcesClient holds the required information to be able to send requests back to the Sources API.
+type sourcesClient struct {
+	baseV31URL         *url.URL
+	baseV20InternalUrl *url.URL
+	config             *config.SuperKeyWorkerConfig
+}
 
-type SourcesClient struct {
+// AuthenticationData
+type AuthenticationData struct {
 	IdentityHeader string
 	OrgId          string
 	AccountNumber  string
 }
 
-func (sc *SourcesClient) CheckAvailability(sourceID string) error {
-	l.Log.Infof("Checking Availability for Source ID: %v", sourceID)
+// PatchApplicationRequest represents the fields that we might want to update when updating the application's details.
+//
+// The AvailabilityStatus field represents the current application's availability status.
+// The AvailabilityStatusError field gives information about why the status might not be "available".
+// The Extra field allows adding extra fields to the application, such as the Superkey key.
+type PatchApplicationRequest struct {
+	AvailabilityStatus      *string                `json:"availability_status"`
+	AvailabilityStatusError *string                `json:"availability_status_error"`
+	Extra                   map[string]interface{} `json:"extra"`
+}
 
-	reqURL, _ := url.Parse(fmt.Sprintf(
-		"%v://%v:%v/api/sources/v3.1/sources/%v/check_availability", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort, sourceID,
-	))
+// PatchSourceRequest represents the availability status field that we might want to update in a Source.
+//
+// The AvailabilityStatus field represents the current sources' availability status.
+type PatchSourceRequest struct {
+	AvailabilityStatus *string `json:"availability_status"`
+}
 
-	req := &http.Request{
-		Method: http.MethodPost,
-		URL:    reqURL,
-		Header: sc.headers(),
+// NewSourcesClient initializes a new SourcesClient to be able to communicate with the Sources API.
+func NewSourcesClient(config *config.SuperKeyWorkerConfig) *sourcesClient {
+	return &sourcesClient{
+		baseV20InternalUrl: &url.URL{
+			Host:   fmt.Sprintf("%s:%d", config.SourcesHost, config.SourcesPort),
+			Path:   "/internal/v2.0/",
+			Scheme: config.SourcesScheme,
+		},
+		baseV31URL: &url.URL{
+			Host:   fmt.Sprintf("%s:%d", config.SourcesHost, config.SourcesPort),
+			Path:   "/api/sources/v3.1",
+			Scheme: config.SourcesScheme,
+		},
+		config: config,
 	}
+}
 
-	resp, err := http.DefaultClient.Do(req)
+func (sc *sourcesClient) TriggerSourceAvailabilityCheck(ctx context.Context, authData *AuthenticationData, sourceId string) error {
+	checkAvailabilityUrl := sc.baseV31URL.JoinPath("/sources/", url.PathEscape(sourceId), "/check_availability")
+
+	return sc.sendRequest(ctx, http.MethodPost, checkAvailabilityUrl, authData, nil, nil)
+}
+
+func (sc *sourcesClient) CreateAuthentication(ctx context.Context, authData *AuthenticationData, sourcesAuthentication *model.AuthenticationCreateRequest) (*model.AuthenticationResponse, error) {
+	createAuthenticationUrl := sc.baseV31URL.JoinPath("/authentications")
+
+	var createdAuthentication model.AuthenticationResponse
+	err := sc.sendRequest(ctx, http.MethodPost, createAuthenticationUrl, authData, sourcesAuthentication, createdAuthentication)
 	if err != nil {
-		return fmt.Errorf("failed to check availability for source %v: %v", sourceID, err)
+		return nil, fmt.Errorf("error while creating authentication: %w", err)
 	}
 
-	defer resp.Body.Close()
+	return &createdAuthentication, nil
+}
 
-	if resp.StatusCode != 202 {
-		return fmt.Errorf("failed to check availability for source %v: bad return code %v", sourceID, resp.StatusCode)
+func (sc *sourcesClient) CreateApplicationAuthentication(ctx context.Context, authData *AuthenticationData, appAuthCreateRequest *model.ApplicationAuthenticationCreateRequest) error {
+	createApplicationAuthenticationUrl := sc.baseV31URL.JoinPath("/application_authentications")
+
+	err := sc.sendRequest(ctx, http.MethodPost, createApplicationAuthenticationUrl, authData, appAuthCreateRequest, nil)
+	if err != nil {
+		return fmt.Errorf("error while creating the application authentication: %w", err)
 	}
 
 	return nil
 }
 
-func (sc *SourcesClient) CreateAuthentication(auth *model.AuthenticationCreateRequest) error {
-	l.Log.Infof("Creating Authentication: %v", auth)
+func (sc *sourcesClient) PatchApplication(ctx context.Context, authData *AuthenticationData, appId string, patchApplicationRequest *PatchApplicationRequest) error {
+	patchApplicationUrl := sc.baseV31URL.JoinPath("/applications/", url.PathEscape(appId))
 
-	reqURL, _ := url.Parse(fmt.Sprintf(
-		"%v://%v:%v/api/sources/v3.1/authentications", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort,
-	))
-
-	body, err := json.Marshal(auth)
-	if err != nil {
-		return err
-	}
-
-	req := &http.Request{
-		Method: http.MethodPost,
-		URL:    reqURL,
-		Header: sc.headers(),
-		Body:   io.NopCloser(bytes.NewBuffer(body)),
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to create Authentication: %v", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode > 299 {
-		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to create Authentication: %v", string(b))
-	}
-
-	bytes, _ := io.ReadAll(resp.Body)
-	var createdAuth model.AuthenticationResponse
-	err = json.Unmarshal(bytes, &createdAuth)
-	if err != nil {
-		return err
-	}
-
-	l.Log.Infof("Creating ApplicationAuthentication for [%v:%v]", auth.ResourceIDRaw, createdAuth.ID)
-	err = sc.createApplicationAuthentication(&model.ApplicationAuthenticationCreateRequest{
-		ApplicationIDRaw:    auth.ResourceIDRaw,
-		AuthenticationIDRaw: createdAuth.ID,
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return sc.sendRequest(ctx, http.MethodPatch, patchApplicationUrl, authData, patchApplicationRequest, nil)
 }
 
-func (sc *SourcesClient) PatchApplication(tenant, appID string, payload map[string]interface{}) error {
-	l.Log.Infof("Patching Application %v with Data: %v", appID, payload)
+func (sc *sourcesClient) PatchSource(ctx context.Context, authData *AuthenticationData, sourceId string, patchSourceRequest *PatchSourceRequest) error {
+	patchSourceUrl := sc.baseV31URL.JoinPath("/sources/" + url.PathEscape(sourceId))
 
-	reqURL, _ := url.Parse(fmt.Sprintf(
-		"%v://%v:%v/api/sources/v3.1/applications/%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort, appID,
-	))
-
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-
-	req := &http.Request{
-		Method: http.MethodPatch,
-		URL:    reqURL,
-		Header: sc.headers(),
-		Body:   io.NopCloser(bytes.NewBuffer(body)),
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to patch Application %v: %v", appID, err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode > 299 {
-		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to patch Application %v: %v", appID, string(b))
-	}
-
-	return nil
+	return sc.sendRequest(ctx, http.MethodPatch, patchSourceUrl, authData, patchSourceRequest, nil)
 }
 
-func (sc *SourcesClient) PatchSource(tenant, sourceID string, payload map[string]interface{}) error {
-	l.Log.Infof("Patching Source %v", sourceID)
+func (sc *sourcesClient) GetInternalAuthentication(ctx context.Context, authData *AuthenticationData, authId string) (*model.AuthenticationInternalResponse, error) {
+	getInternalAuthUrl := sc.baseV20InternalUrl.JoinPath("/authentications/", url.PathEscape(authId), "/?expose_encrypted_attribute[]=password")
 
-	reqURL, _ := url.Parse(fmt.Sprintf(
-		"%v://%v:%v/api/sources/v3.1/sources/%v", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort, sourceID,
-	))
+	var authInternalResponse *model.AuthenticationInternalResponse = nil
+	err := sc.sendRequest(ctx, http.MethodGet, getInternalAuthUrl, authData, nil, &authInternalResponse)
 
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-
-	req := &http.Request{
-		Method: http.MethodPatch,
-		URL:    reqURL,
-		Header: sc.headers(),
-		Body:   io.NopCloser(bytes.NewBuffer(body)),
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to patch Source %v: %v", sourceID, err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode > 299 {
-		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to patch Source %v: %v", sourceID, string(b))
-	}
-
-	return nil
+	return authInternalResponse, err
 }
 
-// GetInternalAuthentication requests an authentication via the internal sources api
-// that way we can expose the password.
-// returns: populated sources api Authentication object, error
-func (sc *SourcesClient) GetInternalAuthentication(authID string) (*model.AuthenticationInternalResponse, error) {
-	l.Log.Infof("Requesting SuperKey Authentication: %v", authID)
+// sendRequest sends a request with the provided method and body to the given url, performing a maximum number of
+// attempts and marshaling the incoming response's body. You can leave the body and the marshalTarget arguments empty
+// if you do not require them.
+func (sc *sourcesClient) sendRequest(ctx context.Context, httpMethod string, url *url.URL, authData *AuthenticationData, body interface{}, marshalTarget interface{}) error {
+	// Set up a timeout so that the requests don't hang up forever.
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
-	reqURL, _ := url.Parse(fmt.Sprintf(
-		"%v://%v:%v/internal/v2.0/authentications/%v?expose_encrypted_attribute[]=password", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort, authID,
-	))
+	// When a body is specified, attempt to marshal it as JSON.
+	var requestBody *bytes.Buffer = nil
+	if body != nil {
+		tmp, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("failed to marshal request body: %w", err)
+		}
 
-	req := &http.Request{
-		Method: http.MethodGet,
-		URL:    reqURL,
-		Header: sc.headers(),
+		requestBody = bytes.NewBuffer(tmp)
 	}
 
-	var res *http.Response
-	var err error
-	for retry := 0; retry < 5; retry++ {
-		res, err = http.DefaultClient.Do(req)
+	// Create the request.
+	request, err := http.NewRequestWithContext(ctx, httpMethod, url.String(), requestBody)
+	if err != nil {
+		return fmt.Errorf(`failed to create request: %w`, err)
+	}
 
-		if err != nil || res.StatusCode == 200 {
-			defer res.Body.Close()
+	// Include the headers in the request.
+	sc.addAuthenticationHeaders(request, authData)
+
+	// Perform the actual request.
+	var response *http.Response
+	for attempt := 0; attempt < sc.config.SourcesRequestsMaxAttempts; attempt++ {
+		response, err = http.DefaultClient.Do(request)
+
+		// The "err" check is to avoid nil dereference errors, since if we attempt checking for the status code
+		// directly when an error has occurred, the "response" struct might be nil.
+		if err == nil && sc.isStatusCodeFamilyOf2xx(response.StatusCode) {
 			break
-		} else {
-			l.Log.Warnf("Authentication %v unavailable, retrying...", authID)
-			time.Sleep(3 * time.Second)
+		}
+
+		// When there are no errors but the status code is not the expected one, we attempt to drain the body so that
+		// the default client can reuse the connection, and then we close the body to avoid memory leaks.
+		if err == nil && !sc.isStatusCodeFamilyOf2xx(response.StatusCode) {
+			_, drainErr := io.Copy(io.Discard, response.Body)
+
+			if drainErr != nil {
+				l.Log.WithFields(logrus.Fields{}).Warnf("Unable to drain response body. The connection will not be reused by the default HTTP client: %s", drainErr)
+			}
+
+			if closeErr := response.Body.Close(); closeErr != nil {
+				l.Log.WithFields(logrus.Fields{}).Errorf("Failed to close incoming response's body: %s", closeErr)
+			}
+
+			l.Log.WithFields(logrus.Fields{}).Debugf(`Unexpected status code received. Want "2xx", got "%d"`, response.StatusCode)
+			continue
+		}
+
+		if err != nil {
+			l.Log.WithFields(logrus.Fields{}).Warn("Failed to send request. Retrying...")
+			l.Log.WithFields(logrus.Fields{}).Debugf("Failed to send request. Retrying... Cause: %s", err)
 		}
 	}
 
-	if err != nil || res.StatusCode != 200 {
-		l.Log.Warnf("Error getting authentication: %v, tenant: %v, error: %v", authID, sc.AccountNumber, err)
-		return nil, fmt.Errorf("failed to get Authentication %v", authID)
+	// In the case in which we deplete all the attempts, we have to return the error and stop the execution here.
+	if err != nil || response == nil {
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 
-	data, _ := io.ReadAll(res.Body)
-	auth := model.AuthenticationInternalResponse{}
-
-	// unmarshaling the data from the request, the id comes back as a string which fills `err`
-	// we can safely ignore that as long as username/pass are there.
-	err = json.Unmarshal(data, &auth)
-	if err != nil && (auth.Username == "" || auth.Password == "") {
-		l.Log.Warnf("Error unmarshaling authentication: %v, tenant: %v, error: %v", authID, sc.AccountNumber, err)
-		return nil, err
+	// Always read the response body, in case we need to return it in an error or marshal it to a struct.
+	responseBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		return fmt.Errorf(`failed to read response body: %w`, err)
 	}
 
-	l.Log.Infof("Authentication %v found!", authID)
-	return &auth, nil
+	// Make sure that the status code is a "2xx" one.
+	if !sc.isStatusCodeFamilyOf2xx(response.StatusCode) {
+		return fmt.Errorf(`unexpected status code received. Want "2xx", got "%d". Response body: %s`, response.StatusCode, string(responseBody))
+	}
+
+	// We might need to marshal the incoming response in the specified struct.
+	if marshalTarget != nil {
+		err = json.Unmarshal(responseBody, &marshalTarget)
+		if err != nil {
+			return fmt.Errorf(`failed to unmarshal response body: %w`, err)
+		}
+	}
+
+	return nil
 }
 
-func (sc *SourcesClient) headers() map[string][]string {
-	var headers = make(map[string][]string)
+// isStatusCodeFamilyOf2xx returns true if the given status code is a 2xx status code.
+func (sc *sourcesClient) isStatusCodeFamilyOf2xx(statusCode int) bool {
+	return statusCode >= 200 && statusCode < 300
+}
 
-	headers["Content-Type"] = []string{"application/json"}
+func (sc *sourcesClient) addAuthenticationHeaders(request *http.Request, authData *AuthenticationData) {
+	request.Header.Add("Content-Type", "application/json")
 
-	if conf.SourcesPSK == "" {
+	if sc.config.SourcesPSK == "" {
 		var xRhId string
 
-		if sc.IdentityHeader == "" {
-			xRhId = encodeIdentity(sc.AccountNumber, sc.OrgId)
+		if authData.IdentityHeader == "" {
+			xRhId = encodeIdentity(authData.AccountNumber, authData.OrgId)
 		} else {
-			xRhId = sc.IdentityHeader
+			xRhId = authData.IdentityHeader
 		}
 
-		headers["x-rh-identity"] = []string{xRhId}
+		request.Header.Add("x-rh-identity", xRhId)
 	} else {
-		headers["x-rh-sources-psk"] = []string{conf.SourcesPSK}
+		request.Header.Add("x-rh-sources-psk", sc.config.SourcesPSK)
 
-		if sc.AccountNumber != "" {
-			headers["x-rh-sources-account-number"] = []string{sc.AccountNumber}
+		if authData.AccountNumber != "" {
+			request.Header.Add("x-rh-sources-account-number", authData.AccountNumber)
 		}
 
-		if sc.IdentityHeader != "" {
-			headers["x-rh-identity"] = []string{sc.IdentityHeader}
+		if authData.IdentityHeader != "" {
+			request.Header.Add("x-rh-identity", authData.IdentityHeader)
 		}
 
-		if sc.OrgId != "" {
-			headers["x-rh-org-id"] = []string{sc.OrgId}
+		if authData.OrgId != "" {
+			request.Header.Add("x-rh-org-id", authData.OrgId)
 		}
 	}
-
-	return headers
-}
-
-func (sc *SourcesClient) createApplicationAuthentication(appAuth *model.ApplicationAuthenticationCreateRequest) error {
-	l.Log.Infof("Creating ApplicationAuthentication: %v", appAuth)
-
-	reqURL, _ := url.Parse(fmt.Sprintf(
-		"%v://%v:%v/api/sources/v3.1/application_authentications", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort,
-	))
-
-	body, err := json.Marshal(appAuth)
-	if err != nil {
-		return err
-	}
-
-	req := &http.Request{
-		Method: http.MethodPost,
-		URL:    reqURL,
-		Header: sc.headers(),
-		Body:   io.NopCloser(bytes.NewBuffer(body)),
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to create Authentication: %v", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode > 299 {
-		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to create ApplicationAuthentication: %v", string(b))
-	}
-
-	return nil
 }

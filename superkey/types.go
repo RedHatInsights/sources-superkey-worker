@@ -1,8 +1,9 @@
 package superkey
 
 import (
+	"context"
+
 	"github.com/RedHatInsights/sources-api-go/model"
-	"github.com/redhatinsights/sources-superkey-worker/sources"
 )
 
 // CreateRequest - struct representing a request for a superkey
@@ -54,12 +55,11 @@ type ForgedApplication struct {
 	Request        *CreateRequest
 	Client         Provider
 	GUID           string
-	SourcesClient  *sources.SourcesClient
 }
 
 // Provider the interface for all of the superkey providers currently just a
 // single method is needed (ForgeApplication)
 type Provider interface {
-	ForgeApplication(*CreateRequest) (*ForgedApplication, error)
-	TearDown(*ForgedApplication) []error
+	ForgeApplication(ctx context.Context, createRequest *CreateRequest) (*ForgedApplication, error)
+	TearDown(ctx context.Context, forgedApplication *ForgedApplication) []error
 }

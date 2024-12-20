@@ -1,8 +1,10 @@
 package superkey
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/redhatinsights/sources-superkey-worker/config"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/sources"
 )
@@ -10,9 +12,9 @@ import (
 // MarkSourceUnavailable marks the application and source as unavailable, while
 // also marking the application's availability_status_error to what AWS updated
 // us with.
-func (req *CreateRequest) MarkSourceUnavailable(incomingErr error, newApplication *ForgedApplication) error {
+func (req *CreateRequest) MarkSourceUnavailable(ctx context.Context, incomingErr error, newApplication *ForgedApplication) error {
 	availabilityStatus := "unavailable"
-	availabilityStatusError := fmt.Sprintf("Resource Creation erorr: failed to create resources in amazon, error: %v", incomingErr)
+	availabilityStatusError := fmt.Sprintf("Resource Creation error: failed to create resources in Amazon. Error: %s", incomingErr)
 	extra := make(map[string]interface{})
 
 	// creating the aws resources was at least partially successful, need to store
@@ -25,31 +27,33 @@ func (req *CreateRequest) MarkSourceUnavailable(incomingErr error, newApplicatio
 		newApplication = &ForgedApplication{}
 	}
 
-	if newApplication.SourcesClient == nil {
-		newApplication.SourcesClient = &sources.SourcesClient{IdentityHeader: req.IdentityHeader, OrgId: req.OrgIdHeader, AccountNumber: req.TenantID}
+	sourcesClient := sources.NewSourcesClient(config.Get())
+
+	authData := &sources.AuthenticationData{
+		IdentityHeader: req.IdentityHeader,
+		OrgId:          req.OrgIdHeader,
 	}
 
-	l.Log.Infof("Marking Application %v Unavailable with message: %v", req.ApplicationID, availabilityStatusError)
+	patchAppRequestBody := &sources.PatchApplicationRequest{
+		AvailabilityStatus:      &availabilityStatus,
+		AvailabilityStatusError: &availabilityStatusError,
+		Extra:                   extra,
+	}
 
-	err := newApplication.SourcesClient.PatchApplication(req.TenantID, req.ApplicationID, map[string]interface{}{
-		"availability_status":       availabilityStatus,
-		"availability_status_error": availabilityStatusError,
-		"extra":                     extra,
-	})
+	err := sourcesClient.PatchApplication(ctx, authData, req.ApplicationID, patchAppRequestBody)
 	if err != nil {
-		l.Log.Errorf("Failed to update application with error message %v", err)
-		return err
+		return fmt.Errorf("error while updating the application: %w", err)
 	}
 
-	l.Log.Infof("Marking Source %v Unavailable", req.SourceID)
-	err = newApplication.SourcesClient.PatchSource(req.TenantID, req.SourceID, map[string]interface{}{
-		"availability_status": availabilityStatus,
-	})
+	l.LogWithContext(ctx).Info(`Application marked as "unavailable"`)
+
+	patchSourceRequestBody := &sources.PatchSourceRequest{AvailabilityStatus: &availabilityStatus}
+	err = sourcesClient.PatchSource(ctx, authData, req.SourceID, patchSourceRequestBody)
 	if err != nil {
-		l.Log.Errorf("Failed to update source with error message %v", err)
-		return err
+		return fmt.Errorf("error while updating the source: %w", err)
 	}
 
-	l.Log.Infof("Finished Marking Source %v + Application %v Unavailable", req.SourceID, req.ApplicationID)
+	l.LogWithContext(ctx).Info(`Source marked as "unavailable"`)
+
 	return nil
 }
