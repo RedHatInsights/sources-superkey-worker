@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/RedHatInsights/sources-api-go v0.0.0-20240424205806-f47fe49d7969
-	github.com/aws/aws-sdk-go v1.44.115
+	github.com/aws/aws-sdk-go v1.55.5
 	github.com/aws/aws-sdk-go-v2 v1.17.1
 	github.com/aws/aws-sdk-go-v2/config v1.17.10
 	github.com/aws/aws-sdk-go-v2/credentials v1.12.23
