@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/RedHatInsights/sources-api-go v0.0.0-20240424205806-f47fe49d7969
-	github.com/aws/aws-sdk-go v1.44.115
+	github.com/aws/aws-sdk-go v1.49.13
 	github.com/aws/aws-sdk-go-v2 v1.17.1
 	github.com/aws/aws-sdk-go-v2/config v1.17.10
 	github.com/aws/aws-sdk-go-v2/credentials v1.12.23
@@ -14,7 +14,7 @@ require (
 	github.com/lindgrenj6/logrus_zinc v0.0.0-20220822152658-d8a0b604f3f9
 	github.com/prometheus/client_golang v1.13.0
 	github.com/redhatinsights/app-common-go v1.6.4
-	github.com/redhatinsights/platform-go-middlewares v0.20.0
+	github.com/redhatinsights/platform-go-middlewares v1.0.0
 	github.com/segmentio/kafka-go v0.4.35
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.13.0
@@ -54,7 +54,6 @@ require (
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
-	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/gomega v1.18.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
