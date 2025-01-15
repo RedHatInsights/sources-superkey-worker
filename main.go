@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -93,91 +94,112 @@ func processSuperkeyRequest(msg kafka.Message) {
 	orgIdHeader := msg.GetHeader("x-rh-sources-org-id")
 
 	if identityHeader == "" && orgIdHeader == "" {
-		l.Log.WithFields(logrus.Fields{"kafka_message": msg}).Warn(`no "x-rh-identity" or "x-rh-sources-org-id" headers found, skipping...`)
+		l.Log.WithFields(logrus.Fields{"kafka_message": msg}).Error(`Skipping Superkey request because no "x-rh-identity" or "x-rh-sources-org-id" headers were found`)
+
 		return
 	}
 
+	l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader}).Debugf(`Processing Kafka message: %s`, string(msg.Value))
+
 	switch eventType {
 	case "create_application":
-		if DisableCreation == "true" {
-			l.Log.Infof("Skipping create_application request: %v", msg.Value)
-			return
-		}
-
-		l.Log.Info("Processing `create_application` request")
 		req := &superkey.CreateRequest{}
 		err := msg.ParseTo(req)
 		if err != nil {
-			l.Log.Warnf("Error parsing request: %v", err)
+			l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader}).Errorf(`Error parsing "create_application" request "%s": %s`, string(msg.Value), err)
 			return
 		}
 		req.IdentityHeader = identityHeader
 		req.OrgIdHeader = orgIdHeader
 
-		createResources(req)
-		l.Log.Infof("Finished processing `create_application` request for tenant %v type %v", req.TenantID, req.ApplicationType)
+		// Define the log context with the fields we want to log.
+		ctx := l.WithTenantId(context.Background(), req.TenantID)
+		ctx = l.WithSourceId(ctx, req.SourceID)
+		ctx = l.WithApplicationId(ctx, req.ApplicationID)
+		ctx = l.WithApplicationType(ctx, req.ApplicationType)
 
-	case "destroy_application":
-		if DisableDeletion == "true" {
-			l.Log.Infof("Skipping destroy_application request: %v", msg.Value)
+		if DisableCreation == "true" {
+			l.LogWithContext(ctx).Info(`Skipping "create_application" request because the the resource creation was disabled by the env var`)
+			l.LogWithContext(ctx).Debugf(`Skipped "create_application" Kafka message: %s`, string(msg.Value))
 			return
 		}
 
-		l.Log.Info("Processing `destroy_application` request")
+		l.LogWithContext(ctx).Info(`Processing "create_application" request`)
+
+		createResources(ctx, req)
+
+		l.LogWithContext(ctx).Info(`Finished processing "create_application"`)
+
+	case "destroy_application":
 		req := &superkey.DestroyRequest{}
 		err := msg.ParseTo(req)
 		if err != nil {
-			l.Log.Warnf("Error parsing request: %v", err)
+			l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader}).Errorf(`Error parsing "destroy_application" request "%s": %s`, string(msg.Value), err)
 			return
 		}
 
-		destroyResources(req)
-		l.Log.Infof("Finished processing `destroy_application` request for GUID %v", req.GUID)
+		// Define the log context with the fields we want to log.
+		ctx := l.WithTenantId(context.Background(), req.TenantID)
+
+		if DisableDeletion == "true" {
+			l.LogWithContext(ctx).Info(`Skipping "create_application"" request because the the resource creation was disabled by the env var`)
+			l.LogWithContext(ctx).Debugf(`Skipping destroy_application request: %s`, string(msg.Value))
+			return
+		}
+
+		l.LogWithContext(ctx).Info(`Processing "destroy_application" request`)
+
+		destroyResources(ctx, req)
+
+		l.LogWithContext(ctx).Info(`Finished processing "destroy_application" request`)
 
 	default:
-		l.Log.Warn("Unknown event_type")
+		l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader}).Errorf(`Unknown event type "%s" received in the header, skipping request...`, eventType)
 	}
 }
 
-func createResources(req *superkey.CreateRequest) {
-	l.Log.Infof("Forging request: %v", req)
-	newApp, err := provider.Forge(req)
-	if err != nil {
-		l.Log.Errorf("Error forging request %v, error: %v", req, err)
-		l.Log.Errorf("Tearing down superkey request %v", req)
+func createResources(ctx context.Context, req *superkey.CreateRequest) {
+	l.LogWithContext(ctx).Debugf("Forging request: %v", req)
 
-		errors := provider.TearDown(newApp)
+	newApp, err := provider.Forge(ctx, req)
+	if err != nil {
+		l.LogWithContext(ctx).Errorf(`Tearing down Superkey request due to an error while forging the request \"%v\": %s`, req, err)
+
+		errors := provider.TearDown(ctx, newApp)
 		if len(errors) != 0 {
 			for _, err := range errors {
-				l.Log.Errorf("Error during teardown: %v", err)
+				l.LogWithContext(ctx).Errorf(`Unable to tear down application: %s`, err)
 			}
 		}
 
-		err := req.MarkSourceUnavailable(err, newApp)
+		err := req.MarkSourceUnavailable(ctx, err, newApp)
 		if err != nil {
-			l.Log.Errorf("Error during PATCH unavailable to application/source: %v", err)
+			l.LogWithContext(ctx).Errorf(`Error while marking the source and application as "unavailable" in Sources: %s`, err)
 		}
 
 		return
 	}
-	l.Log.Infof("Finished Forging request: %v", req)
 
-	err = newApp.CreateInSourcesAPI()
+	l.LogWithContext(ctx).Debug("Finished forging request")
+
+	err = newApp.CreateInSourcesAPI(ctx)
 	if err != nil {
-		l.Log.Errorf("Failed to POST req to sources-api: %v, tearing down.", req)
-		provider.TearDown(newApp)
+		l.LogWithContext(ctx).Errorf(`Error while creating or updating the resources in Sources: %s`, err)
+		provider.TearDown(ctx, newApp)
 	}
 }
 
-func destroyResources(req *superkey.DestroyRequest) {
-	l.Log.Infof("Un-Forging request: %v", req)
-	errors := provider.TearDown(superkey.ReconstructForgedApplication(req))
+func destroyResources(ctx context.Context, req *superkey.DestroyRequest) {
+	l.LogWithContext(ctx).Debugf(`Unforging request "%v"`, req)
+
+	errors := provider.TearDown(ctx, superkey.ReconstructForgedApplication(req))
 	if len(errors) != 0 {
 		for _, err := range errors {
-			l.Log.Errorf("Error during teardown: %v", err)
+			l.LogWithContext(ctx).Errorf(`Error during teardown: %s"`, err)
 		}
 	}
-	l.Log.Infof("Finished Un-Forging request: %v", req)
+
+	l.LogWithContext(ctx).Info("Finished destroying resources")
 }
 
 func initMetrics() {

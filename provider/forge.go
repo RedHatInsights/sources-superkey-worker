@@ -1,21 +1,22 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/redhatinsights/sources-superkey-worker/amazon"
-	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/sources"
 	"github.com/redhatinsights/sources-superkey-worker/superkey"
 )
 
 // Forge - creates the provider client based on provider and forges resources
-func Forge(request *superkey.CreateRequest) (*superkey.ForgedApplication, error) {
-	client, err := getProvider(request)
+func Forge(ctx context.Context, request *superkey.CreateRequest) (*superkey.ForgedApplication, error) {
+	client, err := getProvider(ctx, request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to get provider: %w", err)
 	}
-	f, err := client.ForgeApplication(request)
+
+	f, err := client.ForgeApplication(ctx, request)
 
 	// returning both every time. we need the state of the forged product to know what to
 	// tear down.
@@ -24,14 +25,14 @@ func Forge(request *superkey.CreateRequest) (*superkey.ForgedApplication, error)
 
 // TearDown - tears down application that was forged
 // returns: array of errors if any were returned.
-func TearDown(f *superkey.ForgedApplication) []error {
+func TearDown(ctx context.Context, f *superkey.ForgedApplication) []error {
 	if f == nil {
 		return []error{}
 	}
 
 	// the client is nil if it came from a destroy request
 	if f.Client == nil {
-		client, err := getProvider(f.Request)
+		client, err := getProvider(ctx, f.Request)
 		if err != nil {
 			return []error{err}
 		}
@@ -39,33 +40,31 @@ func TearDown(f *superkey.ForgedApplication) []error {
 		f.Client = client
 	}
 
-	return f.Client.TearDown(f)
+	return f.Client.TearDown(ctx, f)
 }
 
 // getProvider returns a provider based on create request's provider + credentials
-func getProvider(request *superkey.CreateRequest) (superkey.Provider, error) {
+func getProvider(ctx context.Context, request *superkey.CreateRequest) (superkey.Provider, error) {
 	client := sources.SourcesClient{AccountNumber: request.TenantID, IdentityHeader: request.IdentityHeader, OrgId: request.OrgIdHeader}
-	auth, err := client.GetInternalAuthentication(request.SuperKey)
+	auth, err := client.GetInternalAuthentication(ctx, request.SuperKey)
 	if err != nil {
-		l.Log.Errorf("Failed to get superkey credentials for %v, auth id %v", request.TenantID, request.SuperKey)
-		return nil, err
+		return nil, fmt.Errorf(`error while fetching internal authentication "%s" from Sources: %w`, request.SuperKey, err)
 	}
 
 	if auth.Username == "" || auth.Password == "" {
-		l.Log.Errorf("superkey credential %v missing username or password", request.SuperKey)
-		return nil, fmt.Errorf("superkey credential %v missing username or password", request.SuperKey)
+		return nil, fmt.Errorf(`missing username or password from authentication ID "%s" and superkey credential "%s"`, auth.ID, request.SuperKey)
 	}
 
 	switch request.Provider {
 	case "amazon":
-		client, err := amazon.NewClient(auth.Username, auth.Password, getStepNames(request.SuperKeySteps)...)
+		client, err := amazon.NewClient(ctx, auth.Username, auth.Password, getStepNames(request.SuperKeySteps)...)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf(`unable to create Amazon client with authentication ID "%s": %w`, auth.ID, err)
 		}
 
 		return &AmazonProvider{Client: client}, nil
 	default:
-		return nil, fmt.Errorf("unsupported auth provider %v", request.Provider)
+		return nil, fmt.Errorf(`unsupported auth provider "%s"`, request.Provider)
 	}
 }
 
