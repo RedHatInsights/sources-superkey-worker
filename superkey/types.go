@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/RedHatInsights/sources-api-go/model"
-	"github.com/redhatinsights/sources-superkey-worker/sources"
 )
 
 // CreateRequest - struct representing a request for a superkey
@@ -56,7 +55,6 @@ type ForgedApplication struct {
 	Request        *CreateRequest
 	Client         Provider
 	GUID           string
-	SourcesClient  *sources.SourcesClient
 }
 
 // Provider the interface for all of the superkey providers currently just a
