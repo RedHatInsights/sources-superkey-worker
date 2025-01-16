@@ -40,6 +40,8 @@ objects:
               name: internal-psk
               key: psk
               optional: true
+        - name: SOURCES_REQUEST_MAX_ATTEMPTS
+          value: ${SOURCES_REQUEST_MAX_ATTEMPTS}
         - name: LOG_HANDLER
           value: ${LOG_HANDLER}
         - name: AWS_WAIT_TIME
