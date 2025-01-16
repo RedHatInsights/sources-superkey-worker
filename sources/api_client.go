@@ -54,7 +54,7 @@ func NewSourcesClient(config *config.SuperKeyWorkerConfig) *sourcesClient {
 	return &sourcesClient{
 		baseV20InternalUrl: &url.URL{
 			Host:   fmt.Sprintf("%s:%d", config.SourcesHost, config.SourcesPort),
-			Path:   "/internal/v2.0/",
+			Path:   "/internal/v2.0",
 			Scheme: config.SourcesScheme,
 		},
 		baseV31URL: &url.URL{
@@ -82,13 +82,13 @@ func (sc *sourcesClient) CreateAuthentication(ctx context.Context, authData *Aut
 	ctx = l.WithResourceType(ctx, sourcesAuthentication.ResourceType)
 	ctx = l.WithResourceId(ctx, strconv.FormatInt(sourcesAuthentication.ResourceID, 10))
 
-	var createdAuthentication model.AuthenticationResponse
-	err := sc.sendRequest(ctx, http.MethodPost, createAuthenticationUrl, authData, sourcesAuthentication, createdAuthentication)
+	var createdAuthentication *model.AuthenticationResponse = nil
+	err := sc.sendRequest(ctx, http.MethodPost, createAuthenticationUrl, authData, sourcesAuthentication, &createdAuthentication)
 	if err != nil {
 		return nil, fmt.Errorf("error while creating authentication: %w", err)
 	}
 
-	return &createdAuthentication, nil
+	return createdAuthentication, nil
 }
 
 func (sc *sourcesClient) CreateApplicationAuthentication(ctx context.Context, authData *AuthenticationData, appAuthCreateRequest *model.ApplicationAuthenticationCreateRequest) error {
@@ -155,14 +155,20 @@ func (sc *sourcesClient) sendRequest(ctx context.Context, httpMethod string, url
 		requestBody = bytes.NewBuffer(tmp)
 	}
 
+	// Build the URL for the request. Unfortunately, we cannot simply use "url.String()" because it does escape the
+	// special path characters, and for calls like getting the internal authentication, it makes the Sources API to
+	// return a "Not found" response. Things like "[]" get escaped and therefore the URL does not match Sources'
+	// router, which causes issues.
+	urlRaw := fmt.Sprintf("%s://%s:%s%s", url.Scheme, url.Hostname(), url.Port(), url.Path)
+
 	// Create the request. Apparently a nil "*bytes.Buffer" counts as a body, which in turn makes the code panic when
 	// creating a new request. That is why we add another "if" statement to guard us against that.
 	var request *http.Request
 	var err error
 	if requestBody != nil {
-		request, err = http.NewRequestWithContext(ctx, httpMethod, url.String(), requestBody)
+		request, err = http.NewRequestWithContext(ctx, httpMethod, urlRaw, requestBody)
 	} else {
-		request, err = http.NewRequestWithContext(ctx, httpMethod, url.String(), nil)
+		request, err = http.NewRequestWithContext(ctx, httpMethod, urlRaw, nil)
 	}
 
 	if err != nil {
@@ -174,38 +180,42 @@ func (sc *sourcesClient) sendRequest(ctx context.Context, httpMethod string, url
 
 	// Add the logging fields to the context.
 	ctx = l.WithHttpMethod(ctx, httpMethod)
-	ctx = l.WithURL(ctx, url)
+	ctx = l.WithURL(ctx, urlRaw)
 	ctx = l.WithHTTPHeaders(ctx, request.Header)
 
 	// Perform the actual request.
 	var response *http.Response
+	var responseBody []byte
 	for attempt := 0; attempt < sc.config.SourcesRequestsMaxAttempts; attempt++ {
 		response, err = http.DefaultClient.Do(request)
 
 		// The "err" check is to avoid nil dereference errors, since if we attempt checking for the status code
-		// directly when an error has occurred, the "response" struct might be nil.
-		if err == nil && sc.isStatusCodeFamilyOf2xx(response.StatusCode) {
-			break
-		}
+		// or attempt reading the response body when an error has occurred, the "response" struct might be nil.
+		if err == nil {
+			// Declare an error variable to avoid shadowing the response body one.
+			var readErr error
 
-		// When there are no errors but the status code is not the expected one, we attempt to drain the body so that
-		// the default client can reuse the connection, and then we close the body to avoid memory leaks.
-		if err == nil && !sc.isStatusCodeFamilyOf2xx(response.StatusCode) {
-			_, drainErr := io.Copy(io.Discard, response.Body)
-
-			if drainErr != nil {
-				l.LogWithContext(ctx).Warnf("Unable to drain response body. The connection will not be reused by the default HTTP client: %s", drainErr)
+			// Read the response body every time to ensure that the body is completely drained when retrying, or that
+			// it is available if it needs to be printed or used elsewhere. Draining the body is important so that the
+			// connection can be reused.
+			responseBody, readErr = io.ReadAll(response.Body)
+			if readErr != nil {
+				return fmt.Errorf(`failed to read response body: %w`, readErr)
 			}
 
+			// Make sure to close the body to avoid memory leaks.
 			if closeErr := response.Body.Close(); closeErr != nil {
 				l.LogWithContext(ctx).Errorf("Failed to close incoming response's body: %s", closeErr)
 			}
 
-			l.LogWithContext(ctx).Debugf(`Unexpected status code received. Want "2xx", got "%d"`, response.StatusCode)
-			continue
-		}
-
-		if err != nil {
+			// When the status code is "2xx", we can simply exit the loop. Otherwise, we need to keep retrying until we
+			// deplete the attempts.
+			if sc.isStatusCodeFamilyOf2xx(response.StatusCode) {
+				break
+			} else {
+				l.LogWithContext(ctx).WithField("response_body", responseBody).Debugf(`Unexpected status code received. Want "2xx", got "%d"`, response.StatusCode)
+			}
+		} else {
 			l.LogWithContext(ctx).Warn("Failed to send request. Retrying...")
 			l.LogWithContext(ctx).Debugf("Failed to send request. Retrying... Cause: %s", err)
 		}
@@ -214,12 +224,6 @@ func (sc *sourcesClient) sendRequest(ctx context.Context, httpMethod string, url
 	// In the case in which we deplete all the attempts, we have to return the error and stop the execution here.
 	if err != nil || response == nil {
 		return fmt.Errorf("failed to send request: %w", err)
-	}
-
-	// Always read the response body, in case we need to return it in an error or marshal it to a struct.
-	responseBody, err := io.ReadAll(response.Body)
-	if err != nil {
-		return fmt.Errorf(`failed to read response body: %w`, err)
 	}
 
 	// Make sure that the status code is a "2xx" one.

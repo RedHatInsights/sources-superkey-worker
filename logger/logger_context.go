@@ -3,7 +3,6 @@ package logger
 import (
 	"context"
 	"net/http"
-	"net/url"
 
 	"github.com/sirupsen/logrus"
 )
@@ -168,8 +167,8 @@ func WithHttpMethod(ctx context.Context, httpMethod string) context.Context {
 }
 
 // WithURL creates a new context by copying the given context and appending the URL to it.
-func WithURL(ctx context.Context, url *url.URL) context.Context {
-	return context.WithValue(ctx, urlCtxKey, url.String())
+func WithURL(ctx context.Context, url string) context.Context {
+	return context.WithValue(ctx, urlCtxKey, url)
 }
 
 // WithHTTPHeaders creates a new context by copying the given context and appending the HTTP headers to it.
