@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/RedHatInsights/sources-api-go/model"
-	"github.com/redhatinsights/sources-superkey-worker/config"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/sources"
 )
@@ -41,24 +40,27 @@ func (f *ForgedApplication) CreateInSourcesAPI(ctx context.Context) error {
 	// before it's ready.
 	time.Sleep(waitTime() * time.Second)
 
-	sourcesClient := sources.NewSourcesClient(config.Get())
+	// create a sources client for our identity + account number
+	if f.SourcesClient == nil {
+		f.SourcesClient = &sources.SourcesClient{IdentityHeader: f.Request.IdentityHeader, OrgId: f.Request.OrgIdHeader, AccountNumber: f.Request.TenantID}
+	}
 
 	l.LogWithContext(ctx).Debugf("Posting resources back to Sources API: %v", f)
-	err := f.storeSuperKeyData(ctx, sourcesClient)
+	err := f.storeSuperKeyData(ctx)
 	if err != nil {
 		return fmt.Errorf("error while storing the superkey data in Sources: %w", err)
 	}
 
 	l.LogWithContext(ctx).Info("Superkey data stored in Sources")
 
-	err = f.createAuthentications(ctx, sourcesClient)
+	err = f.createAuthentications(ctx)
 	if err != nil {
 		return fmt.Errorf("error while creating the authentications in Sources: %w", err)
 	}
 
 	l.LogWithContext(ctx).Info("Authentications created in Sources")
 
-	err = f.checkAvailability(ctx, sourcesClient)
+	err = f.checkAvailability(ctx)
 	if err != nil {
 		return fmt.Errorf("error while triggering an availability check in Sources: %w", err)
 	}
@@ -69,16 +71,11 @@ func (f *ForgedApplication) CreateInSourcesAPI(ctx context.Context) error {
 	return nil
 }
 
-func (f *ForgedApplication) createAuthentications(ctx context.Context, sourcesRestClient sources.RestClient) error {
+func (f *ForgedApplication) createAuthentications(ctx context.Context) error {
 	extra := map[string]interface{}{}
 	externalID, ok := f.Request.Extra["external_id"]
 	if ok {
 		extra["external_id"] = externalID
-	}
-
-	authData := sources.AuthenticationData{
-		IdentityHeader: f.Request.IdentityHeader,
-		OrgId:          f.Request.OrgIdHeader,
 	}
 
 	auth := model.AuthenticationCreateRequest{
@@ -89,31 +86,19 @@ func (f *ForgedApplication) createAuthentications(ctx context.Context, sourcesRe
 		Extra:         extra,
 	}
 
-	createdAuthentication, err := sourcesRestClient.CreateAuthentication(ctx, &authData, &auth)
+	err := f.SourcesClient.CreateAuthentication(ctx, &auth)
 	if err != nil {
 		return fmt.Errorf("error while creating the authentication in Sources: %w", err)
-	}
-
-	appAuthBody := model.ApplicationAuthenticationCreateRequest{
-		ApplicationIDRaw:    f.Request.ApplicationID,
-		AuthenticationIDRaw: createdAuthentication.ID,
-	}
-
-	err = sourcesRestClient.CreateApplicationAuthentication(ctx, &authData, &appAuthBody)
-	if err != nil {
-		return fmt.Errorf("error while associating the authentication with an application in Sources: %w", err)
 	}
 
 	return nil
 }
 
-func (f *ForgedApplication) storeSuperKeyData(ctx context.Context, sourcesRestClient sources.RestClient) error {
-	authData := sources.AuthenticationData{
-		IdentityHeader: f.Request.IdentityHeader,
-		OrgId:          f.Request.OrgIdHeader,
-	}
+func (f *ForgedApplication) storeSuperKeyData(ctx context.Context) error {
+	err := f.SourcesClient.PatchApplication(ctx, f.Request.ApplicationID, map[string]interface{}{
+		"extra": f.Product.Extra,
+	})
 
-	err := sourcesRestClient.PatchApplication(ctx, &authData, f.Request.ApplicationID, &sources.PatchApplicationRequest{Extra: f.Product.Extra})
 	if err != nil {
 		return fmt.Errorf("failed to update application with superkey data: %w", err)
 	}
@@ -121,13 +106,8 @@ func (f *ForgedApplication) storeSuperKeyData(ctx context.Context, sourcesRestCl
 	return nil
 }
 
-func (f *ForgedApplication) checkAvailability(ctx context.Context, sourcesRestClient sources.RestClient) error {
-	authData := sources.AuthenticationData{
-		IdentityHeader: f.Request.IdentityHeader,
-		OrgId:          f.Request.OrgIdHeader,
-	}
-
-	err := sourcesRestClient.TriggerSourceAvailabilityCheck(ctx, &authData, f.Product.SourceID)
+func (f *ForgedApplication) checkAvailability(ctx context.Context) error {
+	err := f.SourcesClient.CheckAvailability(ctx, f.Product.SourceID)
 	if err != nil {
 		return err
 	}
