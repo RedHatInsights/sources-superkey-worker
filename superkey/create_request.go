@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/redhatinsights/sources-superkey-worker/config"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/sources"
 )
@@ -27,28 +26,24 @@ func (req *CreateRequest) MarkSourceUnavailable(ctx context.Context, incomingErr
 		newApplication = &ForgedApplication{}
 	}
 
-	sourcesClient := sources.NewSourcesClient(config.Get())
-
-	authData := &sources.AuthenticationData{
-		IdentityHeader: req.IdentityHeader,
-		OrgId:          req.OrgIdHeader,
+	if newApplication.SourcesClient == nil {
+		newApplication.SourcesClient = &sources.SourcesClient{IdentityHeader: req.IdentityHeader, OrgId: req.OrgIdHeader, AccountNumber: req.TenantID}
 	}
 
-	patchAppRequestBody := &sources.PatchApplicationRequest{
-		AvailabilityStatus:      &availabilityStatus,
-		AvailabilityStatusError: &availabilityStatusError,
-		Extra:                   extra,
-	}
-
-	err := sourcesClient.PatchApplication(ctx, authData, req.ApplicationID, patchAppRequestBody)
+	err := newApplication.SourcesClient.PatchApplication(ctx, req.ApplicationID, map[string]interface{}{
+		"availability_status":       availabilityStatus,
+		"availability_status_error": availabilityStatusError,
+		"extra":                     extra,
+	})
 	if err != nil {
 		return fmt.Errorf("error while updating the application: %w", err)
 	}
 
 	l.LogWithContext(ctx).Info(`Application marked as "unavailable"`)
 
-	patchSourceRequestBody := &sources.PatchSourceRequest{AvailabilityStatus: &availabilityStatus}
-	err = sourcesClient.PatchSource(ctx, authData, req.SourceID, patchSourceRequestBody)
+	err = newApplication.SourcesClient.PatchSource(ctx, req.SourceID, map[string]interface{}{
+		"availability_status": availabilityStatus,
+	})
 	if err != nil {
 		return fmt.Errorf("error while updating the source: %w", err)
 	}

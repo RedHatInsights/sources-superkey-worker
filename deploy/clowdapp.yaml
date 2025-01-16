@@ -40,8 +40,6 @@ objects:
               name: internal-psk
               key: psk
               optional: true
-        - name: SOURCES_REQUEST_MAX_ATTEMPTS
-          value: ${SOURCES_REQUEST_MAX_ATTEMPTS}
         - name: LOG_HANDLER
           value: ${LOG_HANDLER}
         - name: AWS_WAIT_TIME
@@ -116,6 +114,3 @@ parameters:
   displayName: AWS Wait Time
   description: Time to sleep between creating the resources and posting back to Sources API
   value: "15"
-- name: SOURCES_REQUEST_MAX_ATTEMPTS
-  description: The maximum request attempts to make when calling the Sources API.
-  value: "3"
