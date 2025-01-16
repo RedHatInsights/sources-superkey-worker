@@ -68,9 +68,7 @@ func main() {
 		kafka.Consume(
 			reader,
 			func(msg kafka.Message) {
-				l.Log.Infof("Started processing message %s", string(msg.Value))
 				processSuperkeyRequest(msg)
-				l.Log.Infof("Finished processing message %s", string(msg.Value))
 			},
 		)
 	}()
@@ -94,7 +92,7 @@ func processSuperkeyRequest(msg kafka.Message) {
 	orgIdHeader := msg.GetHeader("x-rh-sources-org-id")
 
 	if identityHeader == "" && orgIdHeader == "" {
-		l.Log.WithFields(logrus.Fields{"kafka_message": msg}).Error(`Skipping Superkey request because no "x-rh-identity" or "x-rh-sources-org-id" headers were found`)
+		l.Log.WithFields(logrus.Fields{"kafka_message": string(msg.Value)}).Error(`Skipping Superkey request because no "x-rh-identity" or "x-rh-sources-org-id" headers were found`)
 
 		return
 	}

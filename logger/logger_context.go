@@ -82,43 +82,43 @@ const httpHeadersCtxKey httpHeadersCtxKeyType = "http_headers"
 func LogWithContext(ctx context.Context) *logrus.Entry {
 	logFields := logrus.Fields{}
 
-	if tenantId, ok := ctx.Value(tenantIdCtxKey).(tenantIdCtxKeyType); ok {
+	if tenantId, ok := ctx.Value(tenantIdCtxKey).(string); ok {
 		logFields["tenant_id"] = tenantId
 	}
 
-	if sourceId, ok := ctx.Value(sourceIdCtxKey).(sourceIdCtxKeyType); ok {
+	if sourceId, ok := ctx.Value(sourceIdCtxKey).(string); ok {
 		logFields["source_id"] = sourceId
 	}
 
-	if applicationId, ok := ctx.Value(applicationIdCtxKey).(applicationIdCtxKeyType); ok {
+	if applicationId, ok := ctx.Value(applicationIdCtxKey).(string); ok {
 		logFields["application_id"] = applicationId
 	}
 
-	if applicationType, ok := ctx.Value(applicationTypeCtxKey).(applicationTypeCtxKeyType); ok {
+	if applicationType, ok := ctx.Value(applicationTypeCtxKey).(string); ok {
 		logFields["application_type"] = applicationType
 	}
 
-	if authenticationId, ok := ctx.Value(authenticationIdCtxKey).(authenticationIdCtxKeyType); ok {
+	if authenticationId, ok := ctx.Value(authenticationIdCtxKey).(string); ok {
 		logFields["authentication_id"] = authenticationId
 	}
 
-	if resourceType, ok := ctx.Value(resourceTypeCtxKey).(resourceTypeCtxKeyType); ok {
+	if resourceType, ok := ctx.Value(resourceTypeCtxKey).(string); ok {
 		logFields["resource_type"] = resourceType
 	}
 
-	if resourceId, ok := ctx.Value(resourceIdCtxKey).(resourceIdCtxKeyType); ok {
+	if resourceId, ok := ctx.Value(resourceIdCtxKey).(string); ok {
 		logFields["resource_id"] = resourceId
 	}
 
-	if httpMethod, ok := ctx.Value(httpMethodCtxKey).(authenticationIdCtxKeyType); ok {
+	if httpMethod, ok := ctx.Value(httpMethodCtxKey).(string); ok {
 		logFields["http_method"] = httpMethod
 	}
 
-	if urlVar, ok := ctx.Value(urlCtxKey).(urlCtxKeyType); ok {
+	if urlVar, ok := ctx.Value(urlCtxKey).(string); ok {
 		logFields["url"] = urlVar
 	}
 
-	if httpHeaders, ok := ctx.Value(httpHeadersCtxKey).(httpHeadersCtxKeyType); ok {
+	if httpHeaders, ok := ctx.Value(httpHeadersCtxKey).(http.Header); ok {
 		logFields["http_headers"] = httpHeaders
 	}
 
