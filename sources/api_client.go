@@ -155,8 +155,16 @@ func (sc *sourcesClient) sendRequest(ctx context.Context, httpMethod string, url
 		requestBody = bytes.NewBuffer(tmp)
 	}
 
-	// Create the request.
-	request, err := http.NewRequestWithContext(ctx, httpMethod, url.String(), requestBody)
+	// Create the request. Apparently a nil "*bytes.Buffer" counts as a body, which in turn makes the code panic when
+	// creating a new request. That is why we add another "if" statement to guard us against that.
+	var request *http.Request
+	var err error
+	if requestBody != nil {
+		request, err = http.NewRequestWithContext(ctx, httpMethod, url.String(), requestBody)
+	} else {
+		request, err = http.NewRequestWithContext(ctx, httpMethod, url.String(), nil)
+	}
+
 	if err != nil {
 		return fmt.Errorf(`failed to create request: %w`, err)
 	}
