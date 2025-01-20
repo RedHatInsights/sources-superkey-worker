@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.29.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.53
 	github.com/aws/aws-sdk-go-v2/service/costandusagereportservice v1.28.10
-	github.com/aws/aws-sdk-go-v2/service/iam v1.38.6
+	github.com/aws/aws-sdk-go-v2/service/iam v1.38.7
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.73.0
 	github.com/lindgrenj6/logrus_zinc v0.0.0-20220822152658-d8a0b604f3f9
 	github.com/prometheus/client_golang v1.20.5
