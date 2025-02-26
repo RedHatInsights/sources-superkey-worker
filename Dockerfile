@@ -1,7 +1,7 @@
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest as build
 WORKDIR /build
 
-RUN microdnf install go
+RUN microdnf install -y go
 
 # We need to override the toolchain to the latest version because
 # unfortunately the latest "ubi8" image does not contain the go version 1.23,
