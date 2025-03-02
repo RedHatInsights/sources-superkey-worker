@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.5
 
 require (
-	github.com/RedHatInsights/sources-api-go v0.0.0-20250213101428-48a570e08313
+	github.com/RedHatInsights/sources-api-go v0.0.0-20250225215315-144c079d2f28
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/aws/aws-sdk-go-v2 v1.36.2
 	github.com/aws/aws-sdk-go-v2/config v1.29.7
