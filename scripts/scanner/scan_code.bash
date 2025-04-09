@@ -23,9 +23,9 @@ cp --recursive "/repository" "${source_dir}"
 # Run the sonar scanner.
 #
 #
-# On the main branch there is no need to give the pull request details.
+# On the master branch there is no need to give the pull request details.
 #
-if [ -n "${GIT_BRANCH:-}" ] && { [ "${GIT_BRANCH}" == "main" ] || [ "${GIT_BRANCH}" == "origin/main" ]; }; then
+if [ -n "${GIT_BRANCH:-}" ] && { [ "${GIT_BRANCH}" == "master" ] || [ "${GIT_BRANCH}" == "origin/master" ]; }; then
   sonar-scanner \
     -Dsonar.exclusions="**/*.sql" \
     -Dsonar.host.url="${SONARQUBE_HOST_URL}" \
@@ -42,7 +42,7 @@ else
     -Dsonar.projectBaseDir="${source_dir}/repository" \
     -Dsonar.projectKey="${SONARQUBE_PROJECT_KEY}" \
     -Dsonar.projectVersion="${COMMIT_SHORT}" \
-    -Dsonar.pullrequest.base="main" \
+    -Dsonar.pullrequest.base="master" \
     -Dsonar.pullrequest.branch="${GIT_BRANCH}" \
     -Dsonar.pullrequest.key="${GITHUB_PULL_REQUEST_ID}" \
     -Dsonar.sourceEncoding="UTF-8" \
