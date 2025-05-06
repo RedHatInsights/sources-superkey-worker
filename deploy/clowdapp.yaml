@@ -63,7 +63,7 @@ objects:
               - stat
               - /tmp/healthy
           initialDelaySeconds: 10
-          periodSeconds: 10
+          periodSeconds: 60
     kafkaTopics:
     - topicName: platform.sources.superkey-requests
       partitions: 3

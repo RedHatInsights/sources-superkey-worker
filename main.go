@@ -3,14 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/RedHatInsights/sources-api-go/kafka"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -22,6 +20,8 @@ import (
 )
 
 const (
+	// probesFilePath defines the path for Kubernetes' probes.
+	probesFilePath         = "/tmp/healthy"
 	superkeyRequestedTopic = "platform.sources.superkey-requests"
 )
 
@@ -39,7 +39,13 @@ func main() {
 	l.InitLogger(conf)
 
 	initMetrics()
-	initHealthCheck()
+
+	// Mark the pod as ready and healthy.
+	//
+	// There is no healthcheck we can run against the Kafka brokers, and since our wrapped Kafka clients do not return
+	// errors, we can't really perform a correct liveness check that would signal Kubernetes to attempt a reboot of
+	// the pods —not that there is much a reboot will do if the brokers are having issues, but...—.
+	createHealthFile()
 
 	var brokers strings.Builder
 	for i, broker := range conf.KafkaBrokerConfig {
@@ -210,56 +216,9 @@ func initMetrics() {
 	}()
 }
 
-func initHealthCheck() {
-	go func() {
-		healthFile := "/tmp/healthy"
-		// which endpoints can we hit and get a 200 from without any auth, these are the main 2
-		// we need anyway.
-		svcs := []string{"https://iam.amazonaws.com", "https://s3.amazonaws.com"}
-
-		// custom http client with timeout
-		client := http.Client{Timeout: 5 * time.Second}
-
-		for {
-			for _, svc := range svcs {
-				resp, err := client.Get(svc)
-
-				if err == nil && resp.StatusCode == 200 {
-					// Copying to the bitbucket in order to gc the memory.
-					_, err := io.Copy(io.Discard, resp.Body)
-					if err != nil {
-						l.Log.Errorf("Error discarding response body: %v", err)
-					}
-
-					err = resp.Body.Close()
-					if err != nil {
-						l.Log.Errorf("Error closing response body: %v", err)
-					}
-
-					// check if file exists, creating it if not (first run, or recovery)
-					_, err = os.Stat(healthFile)
-					if err != nil {
-						_, err = os.Create(healthFile)
-						if err != nil {
-							l.Log.Errorf("Failed to touch healthcheck file")
-						}
-					}
-
-				} else {
-					l.Log.Warnf("Error hitting %s, err %v, removing %s", svc, err, healthFile)
-
-					_, err = os.Stat(healthFile)
-					// this is a bit complicated - err will be nil _if the file is there_, so we want
-					// to remove only if the err is nil.
-					if err == nil {
-						_ = os.Remove(healthFile)
-					}
-
-					break
-				}
-			}
-
-			time.Sleep(10 * time.Second)
-		}
-	}()
+// createHealthFile creates the file required by Kubernetes' probes.
+func createHealthFile() {
+	if _, err := os.Create(probesFilePath); err != nil {
+		l.Log.Fatalf(`Unable to create the "healthy" file for Kubernetes' probes: %s`, err)
+	}
 }
