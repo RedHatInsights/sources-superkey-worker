@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/redhatinsights/sources-superkey-worker/amazon"
+	"github.com/redhatinsights/sources-superkey-worker/config"
 	"github.com/redhatinsights/sources-superkey-worker/sources"
 	"github.com/redhatinsights/sources-superkey-worker/superkey"
 )
@@ -45,8 +46,14 @@ func TearDown(ctx context.Context, f *superkey.ForgedApplication) []error {
 
 // getProvider returns a provider based on create request's provider + credentials
 func getProvider(ctx context.Context, request *superkey.CreateRequest) (superkey.Provider, error) {
-	client := sources.SourcesClient{AccountNumber: request.TenantID, IdentityHeader: request.IdentityHeader, OrgId: request.OrgIdHeader}
-	auth, err := client.GetInternalAuthentication(ctx, request.SuperKey)
+	sourcesRestClient := sources.NewSourcesClient(config.Get())
+
+	authData := sources.AuthenticationData{
+		IdentityHeader: request.IdentityHeader,
+		OrgId:          request.OrgIdHeader,
+	}
+
+	auth, err := sourcesRestClient.GetInternalAuthentication(ctx, &authData, request.SuperKey)
 	if err != nil {
 		return nil, fmt.Errorf(`error while fetching internal authentication "%s" from Sources: %w`, request.SuperKey, err)
 	}
