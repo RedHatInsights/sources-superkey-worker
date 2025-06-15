@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
-	"github.com/redhatinsights/platform-go-middlewares/identity"
+	"github.com/redhatinsights/platform-go-middlewares/v2/identity"
 	"github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/sirupsen/logrus"
 )
