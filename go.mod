@@ -7,7 +7,7 @@ toolchain go1.24.3
 require (
 	github.com/RedHatInsights/sources-api-go v0.0.0-20250522150200-63ac46bcd995
 	github.com/aws/aws-sdk-go v1.55.7
-	github.com/aws/aws-sdk-go-v2 v1.36.3
+	github.com/aws/aws-sdk-go-v2 v1.36.4
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.67
 	github.com/aws/aws-sdk-go-v2/service/costandusagereportservice v1.29.2
