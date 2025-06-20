@@ -11,6 +11,8 @@ import (
 	"syscall"
 
 	"github.com/RedHatInsights/sources-api-go/kafka"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redhatinsights/sources-superkey-worker/config"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
@@ -33,6 +35,24 @@ var (
 
 	conf          = config.Get()
 	superkeyTopic = conf.KafkaTopic(superkeyRequestedTopic)
+
+	// Metrics
+	successfulResourcesCreationCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sources_superkey_successful_creation_requests",
+		Help: "The number of successful resources creation requests",
+	})
+	unsuccessfulResourcesCreationCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sources_superkey_unsuccessful_creation_requests",
+		Help: "The number of unsuccessful resources creation requests",
+	})
+	successfulResourcesDeletionCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sources_superkey_successful_deletion_requests",
+		Help: "The number of successful resources deletion requests",
+	})
+	unsuccessfulResourcesDeletionCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sources_superkey_unsuccessful_deletion_requests",
+		Help: "The number of unsuccessful resources deletion requests",
+	})
 )
 
 func main() {
@@ -181,6 +201,7 @@ func createResources(ctx context.Context, req *superkey.CreateRequest) {
 			l.LogWithContext(ctx).Errorf(`Error while marking the source and application as "unavailable" in Sources: %s`, err)
 		}
 
+		unsuccessfulResourcesCreationCounter.Inc()
 		return
 	}
 
@@ -190,7 +211,11 @@ func createResources(ctx context.Context, req *superkey.CreateRequest) {
 	if err != nil {
 		l.LogWithContext(ctx).Errorf(`Error while creating or updating the resources in Sources: %s`, err)
 		provider.TearDown(ctx, newApp)
+		unsuccessfulResourcesCreationCounter.Inc()
+		return
 	}
+
+	successfulResourcesCreationCounter.Inc()
 }
 
 func destroyResources(ctx context.Context, req *superkey.DestroyRequest) {
@@ -201,6 +226,10 @@ func destroyResources(ctx context.Context, req *superkey.DestroyRequest) {
 		for _, err := range errors {
 			l.LogWithContext(ctx).Errorf(`Error during teardown: %s"`, err)
 		}
+
+		unsuccessfulResourcesDeletionCounter.Inc()
+	} else {
+		successfulResourcesDeletionCounter.Inc()
 	}
 
 	l.LogWithContext(ctx).Info("Finished destroying resources")
