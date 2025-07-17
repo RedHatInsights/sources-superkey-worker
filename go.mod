@@ -2,7 +2,7 @@ module github.com/redhatinsights/sources-superkey-worker
 
 go 1.24
 
-toolchain go1.24.4
+toolchain go1.24.5
 
 require (
 	github.com/RedHatInsights/sources-api-go v0.0.0-20250630145740-024c9ae22bd4
