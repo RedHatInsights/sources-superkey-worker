@@ -144,7 +144,7 @@ func main() {
 			func(msg kafka.Message) {
 				// Track message processing for health monitoring
 				healthState.recordMessageProcessed(int32(msg.Partition), msg.Offset)
-				
+
 				processSuperkeyRequest(msg)
 			},
 		)
@@ -314,7 +314,7 @@ func (h *consumerHealthState) recordMessageProcessed(partition int32, offset int
 	h.messagesProcessed++
 	partitionCount := len(h.partitionOffsets)
 	h.mu.Unlock()
-	
+
 	lastMessageTimestampGauge.Set(float64(now.Unix()))
 	partitionsAssignedGauge.Set(float64(partitionCount))
 }
@@ -323,21 +323,21 @@ func (h *consumerHealthState) recordMessageProcessed(partition int32, offset int
 func (h *consumerHealthState) checkHealth() bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	
+
 	if !h.consumerStarted {
 		return false
 	}
-	
+
 	if timeSince := time.Since(h.lastMessageTime); timeSince > consumerStaleTimeout {
 		l.Log.Warnf("Consumer stale: %v since last message", timeSince)
 		return false
 	}
-	
+
 	if !h.sourcesAPIHealthy {
 		l.Log.Warn("Sources API unhealthy")
 		return false
 	}
-	
+
 	return true
 }
 
@@ -345,13 +345,13 @@ func (h *consumerHealthState) checkHealth() bool {
 func (h *consumerHealthState) checkSourcesAPIHealth(ctx context.Context) {
 	err := sources.HealthCheck(ctx)
 	now := time.Now()
-	
+
 	h.mu.Lock()
 	h.lastSourcesAPICheck = now
 	prevHealth := h.sourcesAPIHealthy
 	h.sourcesAPIHealthy = (err == nil)
 	h.mu.Unlock()
-	
+
 	lastSourcesAPICheckGauge.Set(float64(now.Unix()))
 	if err == nil {
 		sourcesAPIHealthGauge.Set(1)
@@ -369,18 +369,18 @@ func (h *consumerHealthState) checkSourcesAPIHealth(ctx context.Context) {
 // updateHealthStatus updates the overall health status and manages the health file
 func (h *consumerHealthState) updateHealthStatus() {
 	isHealthy := h.checkHealth()
-	
+
 	h.mu.Lock()
 	prevHealth := h.isHealthy
 	h.isHealthy = isHealthy
 	h.mu.Unlock()
-	
+
 	if isHealthy {
 		consumerHealthGauge.Set(1)
 	} else {
 		consumerHealthGauge.Set(0)
 	}
-	
+
 	// Manage health file on state transitions
 	if isHealthy != prevHealth {
 		if isHealthy {
@@ -404,28 +404,28 @@ func monitorConsumerHealth(stop chan struct{}) {
 	ticker := time.NewTicker(healthCheckInterval)
 	defer ticker.Stop()
 	ctx := context.Background()
-	
-	l.Log.Infof("Health monitor started (interval: %v, stale timeout: %v)", 
+
+	l.Log.Infof("Health monitor started (interval: %v, stale timeout: %v)",
 		healthCheckInterval, consumerStaleTimeout)
-	
+
 	healthState.checkSourcesAPIHealth(ctx) // Initial check
-	
+
 	for {
 		select {
 		case <-ticker.C:
 			healthState.checkSourcesAPIHealth(ctx)
 			healthState.updateHealthStatus()
-			
+
 			healthState.mu.RLock()
 			l.Log.Debugf("Health: overall=%v, kafka=%v, api=%v, partitions=%d, msgs=%d, last=%v",
-				healthState.isHealthy, 
+				healthState.isHealthy,
 				time.Since(healthState.lastMessageTime) < consumerStaleTimeout,
 				healthState.sourcesAPIHealthy,
 				len(healthState.partitionOffsets),
 				healthState.messagesProcessed,
 				time.Since(healthState.lastMessageTime).Round(time.Second))
 			healthState.mu.RUnlock()
-				
+
 		case <-stop:
 			l.Log.Info("Health monitor stopped")
 			return
