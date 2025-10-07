@@ -8,7 +8,9 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/RedHatInsights/sources-api-go/kafka"
 	"github.com/prometheus/client_golang/prometheus"
@@ -17,6 +19,7 @@ import (
 	"github.com/redhatinsights/sources-superkey-worker/config"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/provider"
+	"github.com/redhatinsights/sources-superkey-worker/sources"
 	"github.com/redhatinsights/sources-superkey-worker/superkey"
 	"github.com/sirupsen/logrus"
 )
@@ -25,6 +28,10 @@ const (
 	// probesFilePath defines the path for Kubernetes' probes.
 	probesFilePath         = "/tmp/healthy"
 	superkeyRequestedTopic = "platform.sources.superkey-requests"
+	// healthCheckInterval defines how often to check consumer health
+	healthCheckInterval = 30 * time.Second
+	// consumerStaleTimeout defines max time since last message before marking unhealthy
+	consumerStaleTimeout = 5 * time.Minute
 )
 
 var (
@@ -53,19 +60,57 @@ var (
 		Name: "sources_superkey_unsuccessful_deletion_requests",
 		Help: "The number of unsuccessful resources deletion requests",
 	})
+	consumerHealthGauge = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "sources_superkey_consumer_healthy",
+		Help: "Indicates if the Kafka consumer is healthy (1 = healthy, 0 = unhealthy)",
+	})
+	lastMessageTimestampGauge = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "sources_superkey_last_message_timestamp_seconds",
+		Help: "Unix timestamp of the last processed message",
+	})
+	partitionsAssignedGauge = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "sources_superkey_partitions_assigned",
+		Help: "Number of partitions currently assigned to this consumer",
+	})
+	sourcesAPIHealthGauge = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "sources_superkey_sources_api_healthy",
+		Help: "Indicates if the Sources API is reachable and healthy (1 = healthy, 0 = unhealthy)",
+	})
+	lastSourcesAPICheckGauge = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "sources_superkey_last_sources_api_check_timestamp_seconds",
+		Help: "Unix timestamp of the last Sources API health check",
+	})
 )
+
+// consumerHealthState tracks the health state of the Kafka consumer and Sources API
+type consumerHealthState struct {
+	mu                  sync.RWMutex
+	lastMessageTime     time.Time
+	partitionOffsets    map[int32]int64
+	messagesProcessed   uint64
+	isHealthy           bool
+	consumerStarted     bool
+	sourcesAPIHealthy   bool
+	lastSourcesAPICheck time.Time
+}
+
+var healthState = &consumerHealthState{
+	partitionOffsets:  make(map[int32]int64),
+	isHealthy:         false,
+	consumerStarted:   false,
+	sourcesAPIHealthy: false,
+}
 
 func main() {
 	l.InitLogger(conf)
 
 	initMetrics()
 
-	// Mark the pod as ready and healthy.
-	//
-	// There is no healthcheck we can run against the Kafka brokers, and since our wrapped Kafka clients do not return
-	// errors, we can't really perform a correct liveness check that would signal Kubernetes to attempt a reboot of
-	// the pods —not that there is much a reboot will do if the brokers are having issues, but...—.
-	createHealthFile()
+	// Start the health monitoring goroutine that tracks consumer health
+	// and manages the Kubernetes probe health file based on consumer activity.
+	stopHealthMonitor := make(chan struct{})
+	defer close(stopHealthMonitor)
+	go monitorConsumerHealth(stopHealthMonitor)
 
 	var brokers strings.Builder
 	for i, broker := range conf.KafkaBrokerConfig {
@@ -91,9 +136,15 @@ func main() {
 	go func() {
 		l.Log.Info("SuperKey Worker started.")
 
+		// Mark consumer as started
+		healthState.markConsumerStarted()
+
 		kafka.Consume(
 			reader,
 			func(msg kafka.Message) {
+				// Track message processing for health monitoring
+				healthState.recordMessageProcessed(int32(msg.Partition), msg.Offset)
+				
 				processSuperkeyRequest(msg)
 			},
 		)
@@ -245,9 +296,139 @@ func initMetrics() {
 	}()
 }
 
-// createHealthFile creates the file required by Kubernetes' probes.
-func createHealthFile() {
-	if _, err := os.Create(probesFilePath); err != nil {
-		l.Log.Fatalf(`Unable to create the "healthy" file for Kubernetes' probes: %s`, err)
+// markConsumerStarted marks that the consumer has started processing messages
+func (h *consumerHealthState) markConsumerStarted() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.consumerStarted = true
+	h.lastMessageTime = time.Now()
+	l.Log.Info("Consumer started")
+}
+
+// recordMessageProcessed records that a message was processed from a specific partition
+func (h *consumerHealthState) recordMessageProcessed(partition int32, offset int64) {
+	now := time.Now()
+	h.mu.Lock()
+	h.lastMessageTime = now
+	h.partitionOffsets[partition] = offset
+	h.messagesProcessed++
+	partitionCount := len(h.partitionOffsets)
+	h.mu.Unlock()
+	
+	lastMessageTimestampGauge.Set(float64(now.Unix()))
+	partitionsAssignedGauge.Set(float64(partitionCount))
+}
+
+// checkHealth evaluates the overall health based on Kafka consumer activity and Sources API availability
+func (h *consumerHealthState) checkHealth() bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	
+	if !h.consumerStarted {
+		return false
+	}
+	
+	if timeSince := time.Since(h.lastMessageTime); timeSince > consumerStaleTimeout {
+		l.Log.Warnf("Consumer stale: %v since last message", timeSince)
+		return false
+	}
+	
+	if !h.sourcesAPIHealthy {
+		l.Log.Warn("Sources API unhealthy")
+		return false
+	}
+	
+	return true
+}
+
+// checkSourcesAPIHealth performs a health check against the Sources API
+func (h *consumerHealthState) checkSourcesAPIHealth(ctx context.Context) {
+	err := sources.HealthCheck(ctx)
+	now := time.Now()
+	
+	h.mu.Lock()
+	h.lastSourcesAPICheck = now
+	prevHealth := h.sourcesAPIHealthy
+	h.sourcesAPIHealthy = (err == nil)
+	h.mu.Unlock()
+	
+	lastSourcesAPICheckGauge.Set(float64(now.Unix()))
+	if err == nil {
+		sourcesAPIHealthGauge.Set(1)
+		if !prevHealth {
+			l.Log.Info("Sources API healthy")
+		}
+	} else {
+		sourcesAPIHealthGauge.Set(0)
+		if prevHealth {
+			l.Log.Warnf("Sources API unhealthy: %v", err)
+		}
+	}
+}
+
+// updateHealthStatus updates the overall health status and manages the health file
+func (h *consumerHealthState) updateHealthStatus() {
+	isHealthy := h.checkHealth()
+	
+	h.mu.Lock()
+	prevHealth := h.isHealthy
+	h.isHealthy = isHealthy
+	h.mu.Unlock()
+	
+	if isHealthy {
+		consumerHealthGauge.Set(1)
+	} else {
+		consumerHealthGauge.Set(0)
+	}
+	
+	// Manage health file on state transitions
+	if isHealthy != prevHealth {
+		if isHealthy {
+			if _, err := os.Create(probesFilePath); err != nil {
+				l.Log.Errorf("Failed to create health file: %s", err)
+			} else {
+				l.Log.Info("Health file created")
+			}
+		} else {
+			if err := os.Remove(probesFilePath); err != nil && !os.IsNotExist(err) {
+				l.Log.Errorf("Failed to remove health file: %s", err)
+			} else {
+				l.Log.Warn("Health file removed")
+			}
+		}
+	}
+}
+
+// monitorConsumerHealth periodically checks consumer health and manages the health file
+func monitorConsumerHealth(stop chan struct{}) {
+	ticker := time.NewTicker(healthCheckInterval)
+	defer ticker.Stop()
+	ctx := context.Background()
+	
+	l.Log.Infof("Health monitor started (interval: %v, stale timeout: %v)", 
+		healthCheckInterval, consumerStaleTimeout)
+	
+	healthState.checkSourcesAPIHealth(ctx) // Initial check
+	
+	for {
+		select {
+		case <-ticker.C:
+			healthState.checkSourcesAPIHealth(ctx)
+			healthState.updateHealthStatus()
+			
+			healthState.mu.RLock()
+			l.Log.Debugf("Health: overall=%v, kafka=%v, api=%v, partitions=%d, msgs=%d, last=%v",
+				healthState.isHealthy, 
+				time.Since(healthState.lastMessageTime) < consumerStaleTimeout,
+				healthState.sourcesAPIHealthy,
+				len(healthState.partitionOffsets),
+				healthState.messagesProcessed,
+				time.Since(healthState.lastMessageTime).Round(time.Second))
+			healthState.mu.RUnlock()
+				
+		case <-stop:
+			l.Log.Info("Health monitor stopped")
+			return
+		}
 	}
 }
