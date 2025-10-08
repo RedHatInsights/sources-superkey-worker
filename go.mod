@@ -1,8 +1,8 @@
 module github.com/redhatinsights/sources-superkey-worker
 
-go 1.24
+go 1.24.0
 
-toolchain go1.24.5
+toolchain go1.24.6
 
 require (
 	github.com/RedHatInsights/sources-api-go v0.0.0-20250717144439-b5ee99a87b62
@@ -74,7 +74,7 @@ require (
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
-	golang.org/x/text v0.27.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/datatypes v1.2.5 // indirect
