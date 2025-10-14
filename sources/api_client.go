@@ -286,17 +286,18 @@ func (sc *SourcesClient) createApplicationAuthentication(ctx context.Context, ap
 // HealthCheck performs a lightweight health check against the Sources API
 // to verify connectivity and API availability
 func HealthCheck(ctx context.Context) error {
-	// Use a simple GET request to the openapi.json endpoint which is lightweight
-	reqURL, _ := url.Parse(fmt.Sprintf(
+	reqURL, err := url.Parse(fmt.Sprintf(
 		"%v://%v:%v/api/sources/v3.1/openapi.json", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort,
 	))
+	if err != nil {
+		return fmt.Errorf("invalid sources API configuration: %w", err)
+	}
 
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL:    reqURL,
 	}
 
-	// Set a timeout for health checks to avoid hanging
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
