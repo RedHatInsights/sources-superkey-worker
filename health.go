@@ -10,9 +10,9 @@ import (
 	"github.com/RedHatInsights/sources-api-go/kafka"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	kafkago "github.com/segmentio/kafka-go"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/sources"
+	kafkago "github.com/segmentio/kafka-go"
 )
 
 // Health check configuration
@@ -99,7 +99,7 @@ func (h *healthTracker) calculateLag(ctx context.Context) (int64, error) {
 		}
 		totalLag += lag
 	}
-	
+
 	return totalLag, nil
 }
 
@@ -109,18 +109,18 @@ func (h *healthTracker) getPartitionLag(ctx context.Context, broker, topic strin
 		return 0, fmt.Errorf("dial partition %d: %w", partition, err)
 	}
 	defer conn.Close()
-	
+
 	_, latest, err := conn.ReadOffsets()
 	if err != nil {
 		return 0, fmt.Errorf("read offsets partition %d: %w", partition, err)
 	}
-	
+
 	// Lag = how many messages behind we are
 	lag := latest - committed - 1
 	if lag < 0 {
 		lag = 0
 	}
-	
+
 	return lag, nil
 }
 
@@ -137,16 +137,16 @@ func (h *healthTracker) isConsumerHealthy() bool {
 	// Check if stuck: query Kafka for real lag using ReadOffsets()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	lag, err := h.calculateLag(ctx)
 	if err != nil {
 		l.Log.Debugf("Failed to calculate lag: %v", err)
 		// Don't mark unhealthy on transient Kafka connectivity issues
 		return true
 	}
-	
+
 	idleTime := time.Since(lastMsg)
-	
+
 	// Only unhealthy if messages are available but we're not processing them
 	if lag > 0 && idleTime > stuckConsumerWindow {
 		l.Log.Warnf("Consumer stuck: lag=%d (messages waiting), idle=%v", lag, idleTime.Round(time.Second))
@@ -180,13 +180,13 @@ func (h *healthTracker) checkAPI(ctx context.Context) {
 
 func (h *healthTracker) updateOverallHealth() {
 	consumerOK := h.isConsumerHealthy()
-	
+
 	h.mu.RLock()
 	apiOK := h.apiHealthy
 	h.mu.RUnlock()
-	
+
 	nowHealthy := consumerOK && apiOK
-	
+
 	h.mu.Lock()
 	wasHealthy := h.healthy
 	h.healthy = nowHealthy
@@ -233,7 +233,7 @@ func monitorConsumerHealth(stop chan struct{}) {
 			if err == nil {
 				metricConsumerLag.Set(float64(lag))
 			}
-			
+
 			health.mu.RLock()
 			l.Log.Debugf("Health: overall=%v api=%v partitions=%d msgs=%d lag=%d idle=%v",
 				health.healthy,
@@ -250,4 +250,3 @@ func monitorConsumerHealth(stop chan struct{}) {
 		}
 	}
 }
-
