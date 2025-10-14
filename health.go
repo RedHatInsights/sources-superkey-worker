@@ -202,11 +202,17 @@ func (h *healthTracker) updateOverallHealth() {
 	// Manage health file on transitions
 	if nowHealthy != wasHealthy {
 		if nowHealthy {
-			os.Create(probesFilePath)
-			l.Log.Info("Health file created")
+			if _, err := os.Create(probesFilePath); err != nil {
+				l.Log.Errorf("Failed to create health file: %v", err)
+			} else {
+				l.Log.Info("Health file created")
+			}
 		} else {
-			os.Remove(probesFilePath)
-			l.Log.Warn("Health file removed")
+			if err := os.Remove(probesFilePath); err != nil && !os.IsNotExist(err) {
+				l.Log.Errorf("Failed to remove health file: %v", err)
+			} else {
+				l.Log.Warn("Health file removed")
+			}
 		}
 	}
 }
