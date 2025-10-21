@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/RedHatInsights/sources-api-go/kafka"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
 	"github.com/redhatinsights/sources-superkey-worker/sources"
 	kafkago "github.com/segmentio/kafka-go"
@@ -20,22 +18,6 @@ const (
 	healthCheckInterval = 30 * time.Second
 	stuckConsumerWindow = 2 * time.Minute
 	probesFilePath      = "/tmp/healthy"
-)
-
-// Prometheus metrics for monitoring health
-var (
-	metricConsumerHealth = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "sources_superkey_consumer_healthy",
-		Help: "Overall health: 1=healthy, 0=unhealthy",
-	})
-	metricAPIHealth = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "sources_superkey_sources_api_healthy",
-		Help: "Sources API health: 1=healthy, 0=unhealthy",
-	})
-	metricConsumerLag = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "sources_superkey_consumer_lag",
-		Help: "Number of messages behind",
-	})
 )
 
 // Health state tracking
@@ -52,15 +34,21 @@ type healthTracker struct {
 	apiHealthy        bool
 }
 
-var health = &healthTracker{
-	partitionOffsets: make(map[int32]int64),
+// newHealthTracker creates a new health tracker instance
+func newHealthTracker() *healthTracker {
+	return &healthTracker{
+		partitionOffsets: make(map[int32]int64),
+	}
 }
 
 // ===== Message Tracking =====
 
-func (h *healthTracker) start() {
+func (h *healthTracker) start(reader *kafka.Reader, brokerAddr string, topic string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	h.reader = reader
+	h.brokerAddr = brokerAddr
+	h.topic = topic
 	h.started = true
 	h.lastMessageTime = time.Now()
 	l.Log.Info("Consumer started")
@@ -68,10 +56,17 @@ func (h *healthTracker) start() {
 
 func (h *healthTracker) recordMessage(partition int32, offset int64) {
 	h.mu.Lock()
+	_, exists := h.partitionOffsets[partition]
 	h.lastMessageTime = time.Now()
 	h.partitionOffsets[partition] = offset
 	h.messagesProcessed++
+	partitionCount := len(h.partitionOffsets)
 	h.mu.Unlock()
+
+	// Log when we discover a new partition
+	if !exists {
+		l.Log.Infof("Discovered new partition %d (total partitions assigned: %d)", partition, partitionCount)
+	}
 }
 
 // ===== Health Checks =====
@@ -124,7 +119,7 @@ func (h *healthTracker) getPartitionLag(ctx context.Context, broker, topic strin
 	return lag, nil
 }
 
-func (h *healthTracker) isConsumerHealthy() bool {
+func (h *healthTracker) isConsumerHealthy(lag int64, lagErr error) bool {
 	h.mu.RLock()
 	started := h.started
 	lastMsg := h.lastMessageTime
@@ -134,14 +129,9 @@ func (h *healthTracker) isConsumerHealthy() bool {
 		return false
 	}
 
-	// Check if stuck: query Kafka for real lag using ReadOffsets()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	lag, err := h.calculateLag(ctx)
-	if err != nil {
-		l.Log.Debugf("Failed to calculate lag: %v", err)
-		// Don't mark unhealthy on transient Kafka connectivity issues
+	// If we couldn't calculate lag, don't mark unhealthy on transient Kafka connectivity issues
+	if lagErr != nil {
+		l.Log.Debugf("Failed to calculate lag: %v", lagErr)
 		return true
 	}
 
@@ -164,22 +154,20 @@ func (h *healthTracker) checkAPI(ctx context.Context) {
 	h.apiHealthy = nowHealthy
 	h.mu.Unlock()
 
-	// Update metric and log transitions
+	// Log transitions
 	if nowHealthy {
-		metricAPIHealth.Set(1)
 		if !wasHealthy {
 			l.Log.Info("Sources API healthy")
 		}
 	} else {
-		metricAPIHealth.Set(0)
 		if wasHealthy {
 			l.Log.Warn("Sources API unhealthy")
 		}
 	}
 }
 
-func (h *healthTracker) updateOverallHealth() {
-	consumerOK := h.isConsumerHealthy()
+func (h *healthTracker) updateOverallHealth(lag int64, lagErr error) {
+	consumerOK := h.isConsumerHealthy(lag, lagErr)
 
 	h.mu.RLock()
 	apiOK := h.apiHealthy
@@ -191,13 +179,6 @@ func (h *healthTracker) updateOverallHealth() {
 	wasHealthy := h.healthy
 	h.healthy = nowHealthy
 	h.mu.Unlock()
-
-	// Update metric
-	if nowHealthy {
-		metricConsumerHealth.Set(1)
-	} else {
-		metricConsumerHealth.Set(0)
-	}
 
 	// Manage health file on transitions
 	if nowHealthy != wasHealthy {
@@ -219,36 +200,44 @@ func (h *healthTracker) updateOverallHealth() {
 
 // ===== Health Monitor =====
 
-func monitorConsumerHealth(stop chan struct{}) {
+func monitorConsumerHealth(h *healthTracker, stop chan struct{}) {
 	ticker := time.NewTicker(healthCheckInterval)
 	defer ticker.Stop()
 	ctx := context.Background()
 
 	l.Log.Infof("Health monitor started (interval=%v)", healthCheckInterval)
-	health.checkAPI(ctx) // Initial API check
+	h.checkAPI(ctx) // Initial API check
 
+	checkCount := 0
 	for {
 		select {
 		case <-ticker.C:
+			checkCount++
+			// Calculate real lag from Kafka using ReadOffsets() (once per iteration)
+			lag, lagErr := h.calculateLag(ctx)
+
 			// Check API and update overall health
-			health.checkAPI(ctx)
-			health.updateOverallHealth()
+			h.checkAPI(ctx)
+			h.updateOverallHealth(lag, lagErr)
 
-			// Calculate real lag from Kafka using ReadOffsets()
-			lag, err := health.calculateLag(ctx)
-			if err == nil {
-				metricConsumerLag.Set(float64(lag))
-			}
-
-			health.mu.RLock()
+			h.mu.RLock()
+			partitionCount := len(h.partitionOffsets)
 			l.Log.Debugf("Health: overall=%v api=%v partitions=%d msgs=%d lag=%d idle=%v",
-				health.healthy,
-				health.apiHealthy,
-				len(health.partitionOffsets),
-				health.messagesProcessed,
+				h.healthy,
+				h.apiHealthy,
+				partitionCount,
+				h.messagesProcessed,
 				lag,
-				time.Since(health.lastMessageTime).Round(time.Second))
-			health.mu.RUnlock()
+				time.Since(h.lastMessageTime).Round(time.Second))
+
+			// Log partition info at INFO level every 10 health checks (5 minutes by default)
+			if checkCount%10 == 0 {
+				l.Log.Infof("Consumer health summary: partitions=%d msgs_processed=%d lag=%d",
+					partitionCount,
+					h.messagesProcessed,
+					lag)
+			}
+			h.mu.RUnlock()
 
 		case <-stop:
 			l.Log.Info("Health monitor stopped")

@@ -58,11 +58,14 @@ func main() {
 
 	initMetrics()
 
+	// Create health tracker instance
+	health := newHealthTracker()
+
 	// Start the health monitoring goroutine that tracks consumer health
 	// and manages the Kubernetes probe health file based on consumer activity.
 	stopHealthMonitor := make(chan struct{})
 	defer close(stopHealthMonitor)
-	go monitorConsumerHealth(stopHealthMonitor)
+	go monitorConsumerHealth(health, stopHealthMonitor)
 
 	var brokers strings.Builder
 	for i, broker := range conf.KafkaBrokerConfig {
@@ -85,19 +88,16 @@ func main() {
 		l.Log.Fatalf(`could not get Kafka reader: %s`, err)
 	}
 
-	// Store reader reference and config for health checks
-	health.mu.Lock()
-	health.reader = reader
+	// Build broker address for health checks
+	var brokerAddr string
 	if len(conf.KafkaBrokerConfig) > 0 {
-		health.brokerAddr = fmt.Sprintf("%s:%d", conf.KafkaBrokerConfig[0].Hostname, *conf.KafkaBrokerConfig[0].Port)
+		brokerAddr = fmt.Sprintf("%s:%d", conf.KafkaBrokerConfig[0].Hostname, *conf.KafkaBrokerConfig[0].Port)
 	}
-	health.topic = superkeyTopic
-	health.mu.Unlock()
 
 	go func() {
 		l.Log.Info("SuperKey Worker started.")
 
-		health.start()
+		health.start(reader, brokerAddr, superkeyTopic)
 
 		kafka.Consume(
 			reader,
