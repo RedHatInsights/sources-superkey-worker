@@ -22,8 +22,6 @@ import (
 )
 
 const (
-	// probesFilePath defines the path for Kubernetes' probes.
-	probesFilePath         = "/tmp/healthy"
 	superkeyRequestedTopic = "platform.sources.superkey-requests"
 )
 
@@ -60,12 +58,14 @@ func main() {
 
 	initMetrics()
 
-	// Mark the pod as ready and healthy.
-	//
-	// There is no healthcheck we can run against the Kafka brokers, and since our wrapped Kafka clients do not return
-	// errors, we can't really perform a correct liveness check that would signal Kubernetes to attempt a reboot of
-	// the pods —not that there is much a reboot will do if the brokers are having issues, but...—.
-	createHealthFile()
+	// Create health tracker instance
+	health := newHealthTracker()
+
+	// Start the health monitoring goroutine that tracks consumer health
+	// and manages the Kubernetes probe health file based on consumer activity.
+	stopHealthMonitor := make(chan struct{})
+	defer close(stopHealthMonitor)
+	go monitorConsumerHealth(health, stopHealthMonitor)
 
 	var brokers strings.Builder
 	for i, broker := range conf.KafkaBrokerConfig {
@@ -88,12 +88,22 @@ func main() {
 		l.Log.Fatalf(`could not get Kafka reader: %s`, err)
 	}
 
+	// Build broker address for health checks
+	var brokerAddr string
+	if len(conf.KafkaBrokerConfig) > 0 {
+		brokerAddr = fmt.Sprintf("%s:%d", conf.KafkaBrokerConfig[0].Hostname, *conf.KafkaBrokerConfig[0].Port)
+	}
+
 	go func() {
 		l.Log.Info("SuperKey Worker started.")
+
+		health.start(reader, brokerAddr, superkeyTopic)
 
 		kafka.Consume(
 			reader,
 			func(msg kafka.Message) {
+				health.recordMessage(int32(msg.Partition), msg.Offset)
+
 				processSuperkeyRequest(msg)
 			},
 		)
@@ -243,11 +253,4 @@ func initMetrics() {
 			l.Log.Errorf("Metrics init error: %s", err)
 		}
 	}()
-}
-
-// createHealthFile creates the file required by Kubernetes' probes.
-func createHealthFile() {
-	if _, err := os.Create(probesFilePath); err != nil {
-		l.Log.Fatalf(`Unable to create the "healthy" file for Kubernetes' probes: %s`, err)
-	}
 }
