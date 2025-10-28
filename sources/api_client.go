@@ -220,7 +220,27 @@ func (sc *SourcesClient) headers() map[string][]string {
 
 	headers["Content-Type"] = []string{"application/json"}
 
-	if conf.SourcesPSK == "" {
+	// Priority: OIDC > PSK > Identity header
+	if IsOIDCConfigured() {
+		// Use OIDC authentication with Bearer token
+		if tokenProvider, err := GetOIDCTokenProvider(context.Background()); err == nil {
+			if token, err := tokenProvider.GetToken(context.Background()); err == nil {
+				headers["Authorization"] = []string{"Bearer " + token}
+			} else if l.Log != nil {
+				l.Log.WithError(err).Error("Failed to get OIDC token")
+			}
+		} else if l.Log != nil {
+			l.Log.WithError(err).Error("Failed to get OIDC token provider")
+		}
+
+		// Include additional identity headers for context
+		sc.addIdentityHeaders(headers)
+	} else if conf.SourcesPSK != "" {
+		// Use PSK authentication
+		headers["x-rh-sources-psk"] = []string{conf.SourcesPSK}
+		sc.addIdentityHeaders(headers)
+	} else {
+		// Fallback to identity header authentication
 		var xRhId string
 
 		if sc.IdentityHeader == "" {
@@ -230,23 +250,22 @@ func (sc *SourcesClient) headers() map[string][]string {
 		}
 
 		headers["x-rh-identity"] = []string{xRhId}
-	} else {
-		headers["x-rh-sources-psk"] = []string{conf.SourcesPSK}
-
-		if sc.AccountNumber != "" {
-			headers["x-rh-sources-account-number"] = []string{sc.AccountNumber}
-		}
-
-		if sc.IdentityHeader != "" {
-			headers["x-rh-identity"] = []string{sc.IdentityHeader}
-		}
-
-		if sc.OrgId != "" {
-			headers["x-rh-org-id"] = []string{sc.OrgId}
-		}
 	}
 
 	return headers
+}
+
+// addIdentityHeaders adds identity-related headers to the request
+func (sc *SourcesClient) addIdentityHeaders(headers map[string][]string) {
+	if sc.IdentityHeader != "" {
+		headers["x-rh-identity"] = []string{sc.IdentityHeader}
+	}
+	if sc.OrgId != "" {
+		headers["x-rh-org-id"] = []string{sc.OrgId}
+	}
+	if sc.AccountNumber != "" {
+		headers["x-rh-sources-account-number"] = []string{sc.AccountNumber}
+	}
 }
 
 func (sc *SourcesClient) createApplicationAuthentication(ctx context.Context, appAuth *model.ApplicationAuthenticationCreateRequest) error {
