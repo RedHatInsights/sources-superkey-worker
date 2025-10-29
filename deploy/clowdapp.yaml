@@ -131,4 +131,4 @@ parameters:
 - name: OIDC_ISSUER
   displayName: OIDC Issuer
   description: OIDC Issuer URL for authentication
-  value: "https://redhat.com/realms/redhat-external"
+  value: https://redhat.com/realms/redhat-external
