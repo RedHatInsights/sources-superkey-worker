@@ -128,12 +128,12 @@ func processSuperkeyRequest(msg kafka.Message) {
 	orgIdHeader := msg.GetHeader("x-rh-sources-org-id")
 
 	if identityHeader == "" && orgIdHeader == "" {
-		l.Log.WithFields(logrus.Fields{"kafka_message": string(msg.Value)}).Error(`Skipping Superkey request because no "x-rh-identity" or "x-rh-sources-org-id" headers were found`)
+		l.Log.WithFields(logrus.Fields{"kafka_message": string(msg.Value), "message_key": string(msg.Key)}).Error(`Skipping Superkey request because no "x-rh-identity" or "x-rh-sources-org-id" headers were found`)
 
 		return
 	}
 
-	l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader}).Debugf(`Processing Kafka message: %s`, string(msg.Value))
+	l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader, "message_key": string(msg.Key)}).Debugf(`Processing Kafka message: %s`, string(msg.Value))
 
 	switch eventType {
 	case "create_application":
