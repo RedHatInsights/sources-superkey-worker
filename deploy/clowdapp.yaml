@@ -44,6 +44,20 @@ objects:
           value: ${LOG_HANDLER}
         - name: AWS_WAIT_TIME
           value: ${AWS_WAIT_TIME}
+        - name: OIDC_ISSUER
+          value: ${OIDC_ISSUER}
+        - name: OIDC_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: sources-superkey-oidc
+              key: client-id
+              optional: true
+        - name: OIDC_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: sources-superkey-oidc
+              key: client-secret
+              optional: true
         resources:
           limits:
             cpu: ${CPU_LIMIT}
@@ -114,3 +128,7 @@ parameters:
   displayName: AWS Wait Time
   description: Time to sleep between creating the resources and posting back to Sources API
   value: "15"
+- name: OIDC_ISSUER
+  displayName: OIDC Issuer
+  description: OIDC Issuer URL for authentication
+  value: https://redhat.com/realms/redhat-external

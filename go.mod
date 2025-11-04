@@ -1,6 +1,6 @@
 module github.com/redhatinsights/sources-superkey-worker
 
-go 1.24
+go 1.24.0
 
 toolchain go1.24.5
 
@@ -13,6 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/costandusagereportservice v1.29.2
 	github.com/aws/aws-sdk-go-v2/service/iam v1.42.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.79.4
+	github.com/coreos/go-oidc/v3 v3.16.0
 	github.com/lindgrenj6/logrus_zinc v0.0.0-20220822152658-d8a0b604f3f9
 	github.com/prometheus/client_golang v1.22.0
 	github.com/redhatinsights/app-common-go v1.6.8
@@ -20,6 +21,7 @@ require (
 	github.com/segmentio/kafka-go v0.4.48
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.20.1
+	golang.org/x/oauth2 v0.30.0
 )
 
 require (
@@ -42,6 +44,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gertd/go-pluralize v0.2.1 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/go-sql-driver/mysql v1.9.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect

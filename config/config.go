@@ -26,6 +26,9 @@ type SuperKeyWorkerConfig struct {
 	SourcesScheme      string
 	SourcesPort        int
 	SourcesPSK         string
+	OIDCIssuer         string
+	OIDCClientID       string
+	OIDCClientSecret   string
 }
 
 // Get - returns the config parsed from runtime vars
@@ -80,6 +83,9 @@ func Get() *SuperKeyWorkerConfig {
 	options.SetDefault("SourcesScheme", os.Getenv("SOURCES_SCHEME"))
 	options.SetDefault("SourcesPort", os.Getenv("SOURCES_PORT"))
 	options.SetDefault("SourcesPSK", os.Getenv("SOURCES_PSK"))
+	options.SetDefault("OIDCIssuer", os.Getenv("OIDC_ISSUER"))
+	options.SetDefault("OIDCClientID", os.Getenv("OIDC_CLIENT_ID"))
+	options.SetDefault("OIDCClientSecret", os.Getenv("OIDC_CLIENT_SECRET"))
 
 	hostname, _ := os.Hostname()
 	options.SetDefault("Hostname", hostname)
@@ -109,6 +115,9 @@ func Get() *SuperKeyWorkerConfig {
 		SourcesScheme:      options.GetString("SourcesScheme"),
 		SourcesPort:        options.GetInt("SourcesPort"),
 		SourcesPSK:         options.GetString("SourcesPSK"),
+		OIDCIssuer:         options.GetString("OIDCIssuer"),
+		OIDCClientID:       options.GetString("OIDCClientID"),
+		OIDCClientSecret:   options.GetString("OIDCClientSecret"),
 	}
 }
 
