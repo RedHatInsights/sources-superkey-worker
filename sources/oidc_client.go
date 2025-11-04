@@ -123,4 +123,3 @@ func IsOIDCConfigured() bool {
 	})
 	return oidcConfigured
 }
-
