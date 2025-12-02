@@ -11,6 +11,8 @@ import (
 	"syscall"
 
 	"github.com/RedHatInsights/sources-api-go/kafka"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redhatinsights/sources-superkey-worker/config"
 	l "github.com/redhatinsights/sources-superkey-worker/logger"
@@ -20,8 +22,6 @@ import (
 )
 
 const (
-	// probesFilePath defines the path for Kubernetes' probes.
-	probesFilePath         = "/tmp/healthy"
 	superkeyRequestedTopic = "platform.sources.superkey-requests"
 )
 
@@ -33,6 +33,24 @@ var (
 
 	conf          = config.Get()
 	superkeyTopic = conf.KafkaTopic(superkeyRequestedTopic)
+
+	// Metrics
+	successfulResourcesCreationCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sources_superkey_successful_creation_requests",
+		Help: "The number of successful resources creation requests",
+	})
+	unsuccessfulResourcesCreationCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sources_superkey_unsuccessful_creation_requests",
+		Help: "The number of unsuccessful resources creation requests",
+	})
+	successfulResourcesDeletionCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sources_superkey_successful_deletion_requests",
+		Help: "The number of successful resources deletion requests",
+	})
+	unsuccessfulResourcesDeletionCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sources_superkey_unsuccessful_deletion_requests",
+		Help: "The number of unsuccessful resources deletion requests",
+	})
 )
 
 func main() {
@@ -40,12 +58,14 @@ func main() {
 
 	initMetrics()
 
-	// Mark the pod as ready and healthy.
-	//
-	// There is no healthcheck we can run against the Kafka brokers, and since our wrapped Kafka clients do not return
-	// errors, we can't really perform a correct liveness check that would signal Kubernetes to attempt a reboot of
-	// the pods —not that there is much a reboot will do if the brokers are having issues, but...—.
-	createHealthFile()
+	// Create health tracker instance
+	health := newHealthTracker()
+
+	// Start the health monitoring goroutine that tracks consumer health
+	// and manages the Kubernetes probe health file based on consumer activity.
+	stopHealthMonitor := make(chan struct{})
+	defer close(stopHealthMonitor)
+	go monitorConsumerHealth(health, stopHealthMonitor)
 
 	var brokers strings.Builder
 	for i, broker := range conf.KafkaBrokerConfig {
@@ -68,12 +88,22 @@ func main() {
 		l.Log.Fatalf(`could not get Kafka reader: %s`, err)
 	}
 
+	// Build broker address for health checks
+	var brokerAddr string
+	if len(conf.KafkaBrokerConfig) > 0 {
+		brokerAddr = fmt.Sprintf("%s:%d", conf.KafkaBrokerConfig[0].Hostname, *conf.KafkaBrokerConfig[0].Port)
+	}
+
 	go func() {
 		l.Log.Info("SuperKey Worker started.")
+
+		health.start(reader, brokerAddr, superkeyTopic)
 
 		kafka.Consume(
 			reader,
 			func(msg kafka.Message) {
+				health.recordMessage(int32(msg.Partition), msg.Offset)
+
 				processSuperkeyRequest(msg)
 			},
 		)
@@ -98,12 +128,12 @@ func processSuperkeyRequest(msg kafka.Message) {
 	orgIdHeader := msg.GetHeader("x-rh-sources-org-id")
 
 	if identityHeader == "" && orgIdHeader == "" {
-		l.Log.WithFields(logrus.Fields{"kafka_message": string(msg.Value)}).Error(`Skipping Superkey request because no "x-rh-identity" or "x-rh-sources-org-id" headers were found`)
+		l.Log.WithFields(logrus.Fields{"kafka_message": string(msg.Value), "message_key": string(msg.Key)}).Error(`Skipping Superkey request because no "x-rh-identity" or "x-rh-sources-org-id" headers were found`)
 
 		return
 	}
 
-	l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader}).Debugf(`Processing Kafka message: %s`, string(msg.Value))
+	l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader, "message_key": string(msg.Key)}).Debugf(`Processing Kafka message: %s`, string(msg.Value))
 
 	switch eventType {
 	case "create_application":
@@ -181,6 +211,7 @@ func createResources(ctx context.Context, req *superkey.CreateRequest) {
 			l.LogWithContext(ctx).Errorf(`Error while marking the source and application as "unavailable" in Sources: %s`, err)
 		}
 
+		unsuccessfulResourcesCreationCounter.Inc()
 		return
 	}
 
@@ -190,7 +221,11 @@ func createResources(ctx context.Context, req *superkey.CreateRequest) {
 	if err != nil {
 		l.LogWithContext(ctx).Errorf(`Error while creating or updating the resources in Sources: %s`, err)
 		provider.TearDown(ctx, newApp)
+		unsuccessfulResourcesCreationCounter.Inc()
+		return
 	}
+
+	successfulResourcesCreationCounter.Inc()
 }
 
 func destroyResources(ctx context.Context, req *superkey.DestroyRequest) {
@@ -201,6 +236,10 @@ func destroyResources(ctx context.Context, req *superkey.DestroyRequest) {
 		for _, err := range errors {
 			l.LogWithContext(ctx).Errorf(`Error during teardown: %s"`, err)
 		}
+
+		unsuccessfulResourcesDeletionCounter.Inc()
+	} else {
+		successfulResourcesDeletionCounter.Inc()
 	}
 
 	l.LogWithContext(ctx).Info("Finished destroying resources")
@@ -214,11 +253,4 @@ func initMetrics() {
 			l.Log.Errorf("Metrics init error: %s", err)
 		}
 	}()
-}
-
-// createHealthFile creates the file required by Kubernetes' probes.
-func createHealthFile() {
-	if _, err := os.Create(probesFilePath); err != nil {
-		l.Log.Fatalf(`Unable to create the "healthy" file for Kubernetes' probes: %s`, err)
-	}
 }
