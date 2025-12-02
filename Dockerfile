@@ -1,8 +1,8 @@
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest as build
-WORKDIR /build
+FROM registry.access.redhat.com/ubi9/go-toolset:latest as build
 
-RUN microdnf install --assumeyes go \
-    && microdnf clean all
+USER root
+
+WORKDIR /build
 
 COPY . .
 RUN go mod download \
