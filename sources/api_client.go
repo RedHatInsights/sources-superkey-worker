@@ -287,6 +287,7 @@ func (sc *sourcesClient) addAuthenticationHeaders(request *http.Request, authDat
 // HealthCheck performs a lightweight health check against the Sources API
 // to verify connectivity and API availability
 func HealthCheck(ctx context.Context) error {
+	conf := config.Get()
 	reqURL, err := url.Parse(fmt.Sprintf(
 		"%v://%v:%v/api/sources/v3.1/openapi.json", conf.SourcesScheme, conf.SourcesHost, conf.SourcesPort,
 	))
