@@ -28,7 +28,6 @@ type sourcesClient struct {
 type AuthenticationData struct {
 	IdentityHeader string
 	OrgId          string
-	AccountNumber  string
 }
 
 // PatchApplicationRequest represents the fields that we might want to update when updating the application's details.
@@ -161,32 +160,40 @@ func (sc *sourcesClient) sendRequest(ctx context.Context, httpMethod string, url
 	// router, which causes issues.
 	urlRaw := fmt.Sprintf("%s://%s:%s%s", url.Scheme, url.Hostname(), url.Port(), url.Path)
 
-	// Create the request. Apparently a nil "*bytes.Buffer" counts as a body, which in turn makes the code panic when
-	// creating a new request. That is why we add another "if" statement to guard us against that.
-	var request *http.Request
-	var err error
+	// Store the body bytes so we can create a fresh reader for each retry attempt. The body is an io.Reader which
+	// gets exhausted after the first read.
+	var bodyBytes []byte
 	if requestBody != nil {
-		request, err = http.NewRequestWithContext(ctx, httpMethod, urlRaw, requestBody)
-	} else {
-		request, err = http.NewRequestWithContext(ctx, httpMethod, urlRaw, nil)
+		bodyBytes = requestBody.Bytes()
 	}
-
-	if err != nil {
-		return fmt.Errorf(`failed to create request: %w`, err)
-	}
-
-	// Include the headers in the request.
-	sc.addAuthenticationHeaders(request, authData)
 
 	// Add the logging fields to the context.
 	ctx = l.WithHttpMethod(ctx, httpMethod)
 	ctx = l.WithURL(ctx, urlRaw)
-	ctx = l.WithHTTPHeaders(ctx, request.Header)
 
 	// Perform the actual request.
 	var response *http.Response
 	var responseBody []byte
+	var err error
 	for attempt := 0; attempt < sc.config.SourcesRequestsMaxAttempts; attempt++ {
+		// Create the request inside the loop so we get a fresh body reader for each attempt. Apparently a nil
+		// "*bytes.Buffer" counts as a body, which in turn makes the code panic when creating a new request. That is
+		// why we add another "if" statement to guard us against that.
+		var request *http.Request
+		var reqErr error
+		if bodyBytes != nil {
+			request, reqErr = http.NewRequestWithContext(ctx, httpMethod, urlRaw, bytes.NewReader(bodyBytes))
+		} else {
+			request, reqErr = http.NewRequestWithContext(ctx, httpMethod, urlRaw, nil)
+		}
+
+		if reqErr != nil {
+			return fmt.Errorf(`failed to create request: %w`, reqErr)
+		}
+
+		// Include the headers in the request.
+		sc.addAuthenticationHeaders(request, authData)
+
 		response, err = http.DefaultClient.Do(request)
 
 		// The "err" check is to avoid nil dereference errors, since if we attempt checking for the status code
@@ -208,17 +215,24 @@ func (sc *sourcesClient) sendRequest(ctx context.Context, httpMethod string, url
 				l.LogWithContext(ctx).Errorf("Failed to close incoming response's body: %s", closeErr)
 			}
 
-			// When the status code is "2xx", we can simply exit the loop. Otherwise, we need to keep retrying until we
-			// deplete the attempts.
-			if sc.isStatusCodeFamilyOf2xx(response.StatusCode) {
-				break
-			} else {
-				l.LogWithContext(ctx).WithField("response_body", responseBody).Debugf(`Unexpected status code received. Want "2xx", got "%d"`, response.StatusCode)
-			}
+		// When the status code is "2xx", we can simply exit the loop. Otherwise, we need to keep retrying until we
+		// deplete the attempts.
+		if sc.isStatusCodeFamilyOf2xx(response.StatusCode) {
+			break
+		} else if sc.isStatusCodeFamilyOf4xx(response.StatusCode) && response.StatusCode != http.StatusTooManyRequests && response.StatusCode != http.StatusRequestTimeout {
+			// 4xx errors (except 429 and 408) are client errors that won't be fixed by retrying.
+			l.LogWithContext(ctx).WithField("response_body", responseBody).Debugf(`Client error received, not retrying. Status code: "%d"`, response.StatusCode)
+			break
+		} else {
+			l.LogWithContext(ctx).WithField("response_body", responseBody).Debugf(`Unexpected status code received. Want "2xx", got "%d"`, response.StatusCode)
+		}
 		} else {
 			l.LogWithContext(ctx).Warn("Failed to send request. Retrying...")
 			l.LogWithContext(ctx).Debugf("Failed to send request. Retrying... Cause: %s", err)
 		}
+
+		// Sleep between retry attempts to avoid overwhelming the server.
+		time.Sleep(time.Second)
 	}
 
 	// In the case in which we deplete all the attempts, we have to return the error and stop the execution here.
@@ -247,32 +261,25 @@ func (sc *sourcesClient) isStatusCodeFamilyOf2xx(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
+// isStatusCodeFamilyOf4xx returns true if the given status code is a 4xx status code.
+func (sc *sourcesClient) isStatusCodeFamilyOf4xx(statusCode int) bool {
+	return statusCode >= 400 && statusCode < 500
+}
+
 func (sc *sourcesClient) addAuthenticationHeaders(request *http.Request, authData *AuthenticationData) {
 	request.Header.Add("Content-Type", "application/json")
 
-	if sc.config.SourcesPSK == "" {
-		var xRhId string
-
-		if authData.IdentityHeader == "" {
-			xRhId = encodeIdentity(authData.AccountNumber, authData.OrgId)
-		} else {
-			xRhId = authData.IdentityHeader
-		}
-
-		request.Header.Add("x-rh-identity", xRhId)
-	} else {
+	// PSK mode: service-to-service authentication with tenant info in separate headers.
+	// Fallback: use identity header directly (for local development without PSK).
+	if sc.config.SourcesPSK != "" {
 		request.Header.Add("x-rh-sources-psk", sc.config.SourcesPSK)
+	}
 
-		if authData.AccountNumber != "" {
-			request.Header.Add("x-rh-sources-account-number", authData.AccountNumber)
-		}
+	if authData.IdentityHeader != "" {
+		request.Header.Add("x-rh-identity", authData.IdentityHeader)
+	}
 
-		if authData.IdentityHeader != "" {
-			request.Header.Add("x-rh-identity", authData.IdentityHeader)
-		}
-
-		if authData.OrgId != "" {
-			request.Header.Add("x-rh-org-id", authData.OrgId)
-		}
+	if authData.OrgId != "" {
+		request.Header.Add("x-rh-org-id", authData.OrgId)
 	}
 }
