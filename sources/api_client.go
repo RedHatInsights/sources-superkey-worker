@@ -215,17 +215,17 @@ func (sc *sourcesClient) sendRequest(ctx context.Context, httpMethod string, url
 				l.LogWithContext(ctx).Errorf("Failed to close incoming response's body: %s", closeErr)
 			}
 
-		// When the status code is "2xx", we can simply exit the loop. Otherwise, we need to keep retrying until we
-		// deplete the attempts.
-		if sc.isStatusCodeFamilyOf2xx(response.StatusCode) {
-			break
-		} else if sc.isStatusCodeFamilyOf4xx(response.StatusCode) && response.StatusCode != http.StatusTooManyRequests && response.StatusCode != http.StatusRequestTimeout {
-			// 4xx errors (except 429 and 408) are client errors that won't be fixed by retrying.
-			l.LogWithContext(ctx).WithField("response_body", responseBody).Debugf(`Client error received, not retrying. Status code: "%d"`, response.StatusCode)
-			break
-		} else {
-			l.LogWithContext(ctx).WithField("response_body", responseBody).Debugf(`Unexpected status code received. Want "2xx", got "%d"`, response.StatusCode)
-		}
+			// When the status code is "2xx", we can simply exit the loop. Otherwise, we need to keep retrying until we
+			// deplete the attempts.
+			if sc.isStatusCodeFamilyOf2xx(response.StatusCode) {
+				break
+			} else if sc.isStatusCodeFamilyOf4xx(response.StatusCode) && response.StatusCode != http.StatusTooManyRequests && response.StatusCode != http.StatusRequestTimeout {
+				// 4xx errors (except 429 and 408) are client errors that won't be fixed by retrying.
+				l.LogWithContext(ctx).WithField("response_body", responseBody).Debugf(`Client error received, not retrying. Status code: "%d"`, response.StatusCode)
+				break
+			} else {
+				l.LogWithContext(ctx).WithField("response_body", responseBody).Debugf(`Unexpected status code received. Want "2xx", got "%d"`, response.StatusCode)
+			}
 		} else {
 			l.LogWithContext(ctx).Warn("Failed to send request. Retrying...")
 			l.LogWithContext(ctx).Debugf("Failed to send request. Retrying... Cause: %s", err)
