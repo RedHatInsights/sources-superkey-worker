@@ -84,7 +84,7 @@ parameters:
   required: true
 - description: Image
   name: IMAGE
-  value: quay.io/cloudservices/sources-superkey-worker
+  value: quay.io/redhat-user-workloads/hcc-integrations-tenant/sources/sources-superkey-worker
 - name: IMAGE_TAG
   value: latest
 - name: LOG_HANDLER
