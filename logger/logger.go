@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/lindgrenj6/logrus_zinc"
-	lc "github.com/redhatinsights/platform-go-middlewares/logging/cloudwatch"
+	lc "github.com/redhatinsights/platform-go-middlewares/v2/logging/cloudwatch"
 	appconf "github.com/redhatinsights/sources-superkey-worker/config"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
