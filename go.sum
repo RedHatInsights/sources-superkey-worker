@@ -1,5 +1,5 @@
-filippo.io/edwards25519 v1.1.0 h1:FNf4tywRC1HmFuKW5xopWpigGjJKiJSV0Cqo0cJWDaA=
-filippo.io/edwards25519 v1.1.0/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
+filippo.io/edwards25519 v1.2.0 h1:crnVqOiS4jqYleHd9vaKZ+HKtHfllngJIiOpNpoJsjo=
+filippo.io/edwards25519 v1.2.0/go.mod h1:xzAOLCNug/yB62zG1bQ8uziwrIqIuxhctzJT18Q77mc=
 github.com/RedHatInsights/sources-api-go v0.0.0-20250717144439-b5ee99a87b62 h1:rSn7l/yr1SKatF+8kiP+wce/bfM03K3abfx933HAuao=
 github.com/RedHatInsights/sources-api-go v0.0.0-20250717144439-b5ee99a87b62/go.mod h1:0lzO3aIPU2pjW+IQMXr5jGg4m9srkpZKrpmSRwhAwPQ=
 github.com/aws/aws-sdk-go v1.49.13/go.mod h1:LF8svs817+Nz+DmiMQKTO3ubZ/6IaTpq3TjupRn3Eqk=
