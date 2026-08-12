@@ -39,4 +39,6 @@ jobs:
         with:
           version: v2.12.2
           only-new-issues: true
-          args: --enable bodyclose,forcetypeassert,misspell --enable-formatters gci --timeout=5m
+          args: --enable bodyclose,forcetypeassert,misspell --timeout=5m
+      - name: golangci-lint-fmt
+        run: golangci-lint fmt --enable gci --diff
