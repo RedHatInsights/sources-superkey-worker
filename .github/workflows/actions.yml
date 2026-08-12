@@ -39,4 +39,4 @@ jobs:
         with:
           version: v2.12.2
           only-new-issues: true
-          args: --enable gci,bodyclose,forcetypeassert,misspell --timeout=5m
+          args: --enable bodyclose,forcetypeassert,misspell --enable-formatters gci --timeout=5m
