@@ -37,7 +37,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.12.2
+          version: v2.13.1
           only-new-issues: true
           args: --enable bodyclose,forcetypeassert,misspell --timeout=5m
       - name: golangci-lint-fmt
