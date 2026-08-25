@@ -6,6 +6,10 @@
     {
       "matchPackagePatterns": ["konflux-pipelines"],
       "minimumConfidence": "neutral"
+    },
+    {
+      "matchUpdateTypes": ["digest"],
+      "minimumConfidence": "neutral"
     }
   ],
   "tekton": {
