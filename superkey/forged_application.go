@@ -43,7 +43,7 @@ func (f *ForgedApplication) CreateInSourcesAPI(ctx context.Context) error {
 
 	sourcesClient := sources.NewSourcesClient(config.Get())
 
-	l.LogWithContext(ctx).Debugf("Posting resources back to Sources API: %v", f)
+	l.LogWithContext(ctx).Debugf("Posting resources back to Sources API: %s", f)
 	err := f.storeSuperKeyData(ctx, sourcesClient)
 	if err != nil {
 		return fmt.Errorf("error while storing the superkey data in Sources: %w", err)
