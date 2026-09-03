@@ -128,19 +128,19 @@ func processSuperkeyRequest(msg kafka.Message) {
 	orgIdHeader := msg.GetHeader("x-rh-sources-org-id")
 
 	if identityHeader == "" && orgIdHeader == "" {
-		l.Log.WithFields(logrus.Fields{"kafka_message": string(msg.Value), "message_key": string(msg.Key)}).Error(`Skipping Superkey request because no "x-rh-identity" or "x-rh-sources-org-id" headers were found`)
+		l.Log.WithFields(logrus.Fields{"message_length": len(msg.Value), "message_key": string(msg.Key)}).Error(`Skipping Superkey request because no "x-rh-identity" or "x-rh-sources-org-id" headers were found`)
 
 		return
 	}
 
-	l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader, "message_key": string(msg.Key)}).Debugf(`Processing Kafka message: %s`, string(msg.Value))
+	l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader, "message_key": string(msg.Key), "message_length": len(msg.Value)}).Debug(`Processing Kafka message`)
 
 	switch eventType {
 	case "create_application":
 		req := &superkey.CreateRequest{}
 		err := msg.ParseTo(req)
 		if err != nil {
-			l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader}).Errorf(`Error parsing "create_application" request "%s": %s`, string(msg.Value), err)
+			l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader, "message_length": len(msg.Value)}).Errorf(`Error parsing "create_application" request: %s`, err)
 			return
 		}
 		req.IdentityHeader = identityHeader
@@ -154,7 +154,6 @@ func processSuperkeyRequest(msg kafka.Message) {
 
 		if DisableCreation == "true" {
 			l.LogWithContext(ctx).Info(`Skipping "create_application" request because the the resource creation was disabled by the env var`)
-			l.LogWithContext(ctx).Debugf(`Skipped "create_application" Kafka message: %s`, string(msg.Value))
 			return
 		}
 
@@ -168,7 +167,7 @@ func processSuperkeyRequest(msg kafka.Message) {
 		req := &superkey.DestroyRequest{}
 		err := msg.ParseTo(req)
 		if err != nil {
-			l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader}).Errorf(`Error parsing "destroy_application" request "%s": %s`, string(msg.Value), err)
+			l.Log.WithFields(logrus.Fields{"org_id": orgIdHeader, "message_length": len(msg.Value)}).Errorf(`Error parsing "destroy_application" request: %s`, err)
 			return
 		}
 
@@ -176,8 +175,7 @@ func processSuperkeyRequest(msg kafka.Message) {
 		ctx := l.WithTenantId(context.Background(), req.TenantID)
 
 		if DisableDeletion == "true" {
-			l.LogWithContext(ctx).Info(`Skipping "create_application"" request because the the resource creation was disabled by the env var`)
-			l.LogWithContext(ctx).Debugf(`Skipping destroy_application request: %s`, string(msg.Value))
+			l.LogWithContext(ctx).Info(`Skipping "destroy_application" request because resource deletion was disabled by the env var`)
 			return
 		}
 
@@ -193,11 +191,11 @@ func processSuperkeyRequest(msg kafka.Message) {
 }
 
 func createResources(ctx context.Context, req *superkey.CreateRequest) {
-	l.LogWithContext(ctx).Debugf("Forging request: %v", req)
+	l.LogWithContext(ctx).Debugf("Forging request: %s", req)
 
 	newApp, err := provider.Forge(ctx, req)
 	if err != nil {
-		l.LogWithContext(ctx).Errorf(`Tearing down Superkey request due to an error while forging the request \"%v\": %s`, req, err)
+		l.LogWithContext(ctx).Errorf(`Tearing down Superkey request due to an error while forging the request %s: %s`, req, err)
 
 		errors := provider.TearDown(ctx, newApp)
 		if len(errors) != 0 {
@@ -229,7 +227,7 @@ func createResources(ctx context.Context, req *superkey.CreateRequest) {
 }
 
 func destroyResources(ctx context.Context, req *superkey.DestroyRequest) {
-	l.LogWithContext(ctx).Debugf(`Unforging request "%v"`, req)
+	l.LogWithContext(ctx).Debugf(`Unforging request %s`, req)
 
 	errors := provider.TearDown(ctx, superkey.ReconstructForgedApplication(req))
 	if len(errors) != 0 {
