@@ -75,7 +75,7 @@ func TestCreateRequestString_UsedByFmt(t *testing.T) {
 
 	// %v and %s should both use the String() method
 	vResult := fmt.Sprintf("%v", req)
-	sResult := fmt.Sprintf("%s", req)
+	sResult := fmt.Sprintf("%s", req) //nolint:staticcheck // intentionally testing %s verb calls String()
 
 	if strings.Contains(vResult, "secret-identity") {
 		t.Error("fmt.Sprintf with v-verb leaked IdentityHeader")
@@ -90,10 +90,10 @@ func TestCreateRequestString_UsedByFmt(t *testing.T) {
 
 func TestDestroyRequestString_RedactsSensitiveFields(t *testing.T) {
 	req := &DestroyRequest{
-		TenantID:  "tenant-1",
-		SuperKey:  "super-secret-key-value",
-		GUID:      "abcdef1234567890",
-		Provider:  "amazon",
+		TenantID: "tenant-1",
+		SuperKey: "super-secret-key-value",
+		GUID:     "abcdef1234567890",
+		Provider: "amazon",
 		StepsCompleted: map[string]map[string]string{
 			"s3":       {"output": "redhat-cost-mgmt-bucket-abc123"},
 			"iam_role": {"output": "arn:aws:iam::123456:role/redhat-role"},
