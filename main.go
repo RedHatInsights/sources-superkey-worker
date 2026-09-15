@@ -231,6 +231,12 @@ func createResources(ctx context.Context, req *superkey.CreateRequest) {
 func destroyResources(ctx context.Context, req *superkey.DestroyRequest) {
 	l.LogWithContext(ctx).Debugf(`Unforging request "%v"`, req)
 
+	if err := superkey.ValidateDestroyRequest(req); err != nil {
+		l.LogWithContext(ctx).Errorf(`Rejecting destroy_application request: resource name validation failed: %s`, err)
+		unsuccessfulResourcesDeletionCounter.Inc()
+		return
+	}
+
 	errors := provider.TearDown(ctx, superkey.ReconstructForgedApplication(req))
 	if len(errors) != 0 {
 		for _, err := range errors {
