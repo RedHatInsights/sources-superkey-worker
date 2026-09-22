@@ -2,6 +2,7 @@ package superkey
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/RedHatInsights/sources-api-go/model"
 )
@@ -62,4 +63,45 @@ type ForgedApplication struct {
 type Provider interface {
 	ForgeApplication(ctx context.Context, createRequest *CreateRequest) (*ForgedApplication, error)
 	TearDown(ctx context.Context, forgedApplication *ForgedApplication) []error
+}
+
+// String returns a redacted representation of CreateRequest, omitting sensitive
+// fields (IdentityHeader, OrgIdHeader, Extra, SuperKey) to prevent credential
+// leakage in log output.
+func (r *CreateRequest) String() string {
+	if r == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf(
+		"CreateRequest{TenantID:%s, SourceID:%s, ApplicationID:%s, ApplicationType:%s, Provider:%s, Steps:%d}",
+		r.TenantID, r.SourceID, r.ApplicationID, r.ApplicationType, r.Provider, len(r.SuperKeySteps),
+	)
+}
+
+// String returns a redacted representation of DestroyRequest, omitting
+// sensitive fields (SuperKey, StepsCompleted internals) to prevent credential
+// leakage in log output.
+func (r *DestroyRequest) String() string {
+	if r == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf(
+		"DestroyRequest{TenantID:%s, GUID:%s, Provider:%s, StepsCompleted:%d, Steps:%d}",
+		r.TenantID, r.GUID, r.Provider, len(r.StepsCompleted), len(r.SuperKeySteps),
+	)
+}
+
+// String returns a redacted representation of ForgedApplication.
+func (f *ForgedApplication) String() string {
+	if f == nil {
+		return "<nil>"
+	}
+	reqStr := "<nil>"
+	if f.Request != nil {
+		reqStr = f.Request.String()
+	}
+	return fmt.Sprintf(
+		"ForgedApplication{GUID:%s, StepsCompleted:%d, Request:%s}",
+		f.GUID, len(f.StepsCompleted), reqStr,
+	)
 }
