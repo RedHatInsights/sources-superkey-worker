@@ -79,7 +79,16 @@ func buildHTTPClient(cfg *config.SuperKeyWorkerConfig) *http.Client {
 	}
 
 	// Clone DefaultTransport to preserve proxy, HTTP/2, and connection pool settings.
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		logWarnf("http.DefaultTransport is not *http.Transport, using default TLS config")
+		return &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
+			},
+		}
+	}
+	transport := defaultTransport.Clone()
 
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,

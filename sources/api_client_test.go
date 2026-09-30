@@ -131,7 +131,10 @@ func TestBuildHTTPClient_HTTPS_ClonesDefaultTransport(t *testing.T) {
 		t.Fatal("expected *http.Transport")
 	}
 
-	defaultTransport := http.DefaultTransport.(*http.Transport)
+	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		t.Fatal("expected http.DefaultTransport to be *http.Transport")
+	}
 
 	// Verify cloned transport inherits key settings from DefaultTransport.
 	if transport.MaxIdleConns != defaultTransport.MaxIdleConns {

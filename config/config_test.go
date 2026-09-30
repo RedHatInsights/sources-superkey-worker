@@ -1,7 +1,6 @@
 package config
 
 import (
-	"os"
 	"testing"
 )
 
@@ -22,16 +21,12 @@ func TestGet_NormalizesSourcesScheme(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("SOURCES_SCHEME", tt.envValue)
-			defer os.Unsetenv("SOURCES_SCHEME")
+			t.Setenv("SOURCES_SCHEME", tt.envValue)
 
 			// Set required env vars to avoid side effects.
-			os.Setenv("SOURCES_HOST", "localhost")
-			os.Setenv("SOURCES_PORT", "8000")
-			os.Setenv("SOURCES_REQUEST_MAX_ATTEMPTS", "1")
-			defer os.Unsetenv("SOURCES_HOST")
-			defer os.Unsetenv("SOURCES_PORT")
-			defer os.Unsetenv("SOURCES_REQUEST_MAX_ATTEMPTS")
+			t.Setenv("SOURCES_HOST", "localhost")
+			t.Setenv("SOURCES_PORT", "8000")
+			t.Setenv("SOURCES_REQUEST_MAX_ATTEMPTS", "1")
 
 			cfg := Get()
 
