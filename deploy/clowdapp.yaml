@@ -103,7 +103,7 @@ parameters:
 - name: SOURCES_SCHEME
   displayName: Sources Service Scheme
   description: Scheme to use for the Sources service URL.
-  value: http
+  value: https
 - name: SOURCES_HOST
   displayName: Sources Service Host
   description: Host to use for the Sources service URL.
