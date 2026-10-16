@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	clowder "github.com/redhatinsights/app-common-go/pkg/api/v1"
 	"github.com/spf13/viper"
@@ -27,6 +28,7 @@ type SuperKeyWorkerConfig struct {
 	SourcesPort                int
 	SourcesPSK                 string
 	SourcesRequestsMaxAttempts int
+	SourcesTLSCAPath           string
 }
 
 // Get - returns the config parsed from runtime vars
@@ -78,9 +80,23 @@ func Get() *SuperKeyWorkerConfig {
 	options.SetDefault("LogHandler", os.Getenv("LOG_HANDLER"))
 
 	options.SetDefault("SourcesHost", os.Getenv("SOURCES_HOST"))
-	options.SetDefault("SourcesScheme", os.Getenv("SOURCES_SCHEME"))
 	options.SetDefault("SourcesPort", os.Getenv("SOURCES_PORT"))
 	options.SetDefault("SourcesPSK", os.Getenv("SOURCES_PSK"))
+
+	// Normalize the scheme: lowercase, trimmed, default to "http" if empty.
+	sourcesScheme := strings.ToLower(strings.TrimSpace(os.Getenv("SOURCES_SCHEME")))
+	if sourcesScheme == "" {
+		sourcesScheme = "http"
+	}
+	options.SetDefault("SourcesScheme", sourcesScheme)
+
+	// Use the Clowder-provided TLS CA path for HTTPS certificate validation.
+	if clowder.IsClowderEnabled() {
+		cfg := clowder.LoadedConfig
+		if cfg.TlsCAPath != nil && *cfg.TlsCAPath != "" {
+			options.SetDefault("SourcesTLSCAPath", *cfg.TlsCAPath)
+		}
+	}
 
 	// Get the number of maximum request attempts we want to make to the Sources' API.
 	sourcesRequestsMaxAttempts, err := strconv.Atoi(os.Getenv("SOURCES_REQUEST_MAX_ATTEMPTS"))
@@ -125,6 +141,7 @@ func Get() *SuperKeyWorkerConfig {
 		SourcesPort:                options.GetInt("SourcesPort"),
 		SourcesPSK:                 options.GetString("SourcesPSK"),
 		SourcesRequestsMaxAttempts: options.GetInt("SourcesRequestsMaxAttempts"),
+		SourcesTLSCAPath:           options.GetString("SourcesTLSCAPath"),
 	}
 }
 
