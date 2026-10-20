@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: sources-superkey-worker
+objects:
+- apiVersion: cloud.redhat.com/v1alpha1
+  kind: ClowdApp
+  metadata:
+    name: sources-superkey-worker
+  spec:
+    envName: ${ENV_NAME}
+    deployments:
+    - name: svc
+      spec:
+        template:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+      minReplicas: ${{MIN_REPLICAS}}
+      podSpec:
+        image: ${IMAGE}:${IMAGE_TAG}
+        env:
+        - name: LOG_LEVEL
+          value: ${LOG_LEVEL}
+        - name: CONTAINER_LOG_LEVEL
+          value: ${CONTAINER_LOG_LEVEL}
+        - name: DISABLE_RESOURCE_CREATION
+          value: ${DISABLE_RESOURCE_CREATION}
+        - name: DISABLE_RESOURCE_DELETION
+          value: ${DISABLE_RESOURCE_DELETION}
+        - name: SOURCES_SCHEME
+          value: ${SOURCES_SCHEME}
+        - name: SOURCES_HOST
+          value: ${SOURCES_HOST}
+        - name: SOURCES_PORT
+          value: ${SOURCES_PORT}
+        - name: SOURCES_PSK
+          valueFrom:
+            secretKeyRef:
+              name: internal-psk
+              key: psk
+              optional: true
+        - name: SOURCES_REQUEST_MAX_ATTEMPTS
+          value: ${SOURCES_REQUEST_MAX_ATTEMPTS}
+        - name: LOG_HANDLER
+          value: ${LOG_HANDLER}
+        - name: AWS_WAIT_TIME
+          value: ${AWS_WAIT_TIME}
+        resources:
+          limits:
+            cpu: ${CPU_LIMIT}
+            memory: ${MEMORY_LIMIT}
+          requests:
+            cpu: ${CPU_REQUEST}
+            memory: ${MEMORY_REQUEST}
+        readinessProbe:
+          exec:
+            command:
+              - stat
+              - /tmp/healthy
+          initialDelaySeconds: 3
+        livenessProbe:
+          exec:
+            command:
+              - stat
+              - /tmp/healthy
+          initialDelaySeconds: 10
+          periodSeconds: 60
+    kafkaTopics:
+    - topicName: platform.sources.superkey-requests
+      partitions: 3
+      replicas: 3
+parameters:
+- name: CPU_LIMIT
+  value: "50m"
+- name: CPU_REQUEST
+  value: "20m"
+- name: DISABLE_RESOURCE_CREATION
+  value: "false"
+- name: DISABLE_RESOURCE_DELETION
+  value: "false"
+- description: Clowder ENV
+  name: ENV_NAME
+  required: true
+- description: Image
+  name: IMAGE
+  value: quay.io/redhat-user-workloads/hcc-integrations-tenant/sources/sources-superkey-worker
+- name: IMAGE_TAG
+  value: latest
+- name: LOG_HANDLER
+  value: 'built-in'
+- name: LOG_LEVEL
+  value: WARN
+- name: CONTAINER_LOG_LEVEL
+  value: INFO
+- name: MEMORY_LIMIT
+  value: "100Mi"
+- name: MEMORY_REQUEST
+  value: "50Mi"
+- name: MIN_REPLICAS
+  description: The number of replicas to use for the prometheus deployment
+  value: "1"
+- name: SOURCES_SCHEME
+  displayName: Sources Service Scheme
+  description: Scheme to use for the Sources service URL.
+  value: http
+- name: SOURCES_HOST
+  displayName: Sources Service Host
+  description: Host to use for the Sources service URL.
+  value: sources-api-svc
+- name: SOURCES_PORT
+  displayName: Sources Service Port
+  description: Port to use for the Sources service URL.
+  value: "8000"
+- name: AWS_WAIT_TIME
+  displayName: AWS Wait Time
+  description: Time to sleep between creating the resources and posting back to Sources API
+  value: "15"
+- name: SOURCES_REQUEST_MAX_ATTEMPTS
+  description: The maximum request attempts to make when calling the Sources API.
+  value: "3"
