@@ -3,11 +3,15 @@ package sources
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
+	stdlog "log"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"time"
 
@@ -21,6 +25,7 @@ type sourcesClient struct {
 	baseV31URL         *url.URL
 	baseV20InternalUrl *url.URL
 	config             *config.SuperKeyWorkerConfig
+	httpClient         *http.Client
 }
 
 // AuthenticationData holds the required authentication elements that need to be sent back to the Sources API when
@@ -61,7 +66,62 @@ func NewSourcesClient(config *config.SuperKeyWorkerConfig) *sourcesClient {
 			Path:   "/api/sources/v3.1",
 			Scheme: config.SourcesScheme,
 		},
-		config: config,
+		config:     config,
+		httpClient: buildHTTPClient(config),
+	}
+}
+
+// buildHTTPClient creates an HTTP client with TLS transport when the scheme is "https".
+// It clones http.DefaultTransport to inherit proxy settings, timeouts, and other sensible defaults.
+func buildHTTPClient(cfg *config.SuperKeyWorkerConfig) *http.Client {
+	if cfg.SourcesScheme != "https" {
+		return http.DefaultClient
+	}
+
+	// Clone DefaultTransport to preserve proxy, HTTP/2, and connection pool settings.
+	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		logWarnf("http.DefaultTransport is not *http.Transport, using default TLS config")
+		return &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
+			},
+		}
+	}
+	transport := defaultTransport.Clone()
+
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+
+	// Load the Clowder-provided CA certificate for service-to-service TLS validation.
+	if cfg.SourcesTLSCAPath != "" {
+		caCert, err := os.ReadFile(cfg.SourcesTLSCAPath)
+		if err != nil {
+			logWarnf("Failed to read TLS CA certificate from %s: %s. Falling back to system CA pool.", cfg.SourcesTLSCAPath, err)
+		} else {
+			caCertPool := x509.NewCertPool()
+			if !caCertPool.AppendCertsFromPEM(caCert) {
+				logWarnf("Failed to parse TLS CA certificate from %s. Falling back to system CA pool.", cfg.SourcesTLSCAPath)
+			} else {
+				tlsConfig.RootCAs = caCertPool
+			}
+		}
+	}
+
+	transport.TLSClientConfig = tlsConfig
+
+	return &http.Client{
+		Transport: transport,
+	}
+}
+
+// logWarnf logs a warning using the global logger if initialized, otherwise falls back to the standard log package.
+func logWarnf(format string, args ...interface{}) {
+	if l.Log != nil {
+		l.Log.Warnf(format, args...)
+	} else {
+		stdlog.Printf("WARN: "+format, args...)
 	}
 }
 
@@ -194,7 +254,7 @@ func (sc *sourcesClient) sendRequest(ctx context.Context, httpMethod string, url
 		// Include the headers in the request.
 		sc.addAuthenticationHeaders(request, authData)
 
-		response, err = http.DefaultClient.Do(request)
+		response, err = sc.httpClient.Do(request)
 
 		// The "err" check is to avoid nil dereference errors, since if we attempt checking for the status code
 		// or attempt reading the response body when an error has occurred, the "response" struct might be nil.
@@ -295,14 +355,14 @@ func HealthCheck(ctx context.Context) error {
 		return fmt.Errorf("invalid sources API configuration: %w", err)
 	}
 
-	req := &http.Request{
-		Method: http.MethodGet,
-		URL:    reqURL,
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
+	if err != nil {
+		return fmt.Errorf("failed to create health check request: %w", err)
 	}
 
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
+	// Use a TLS-aware client for the health check, matching the main client transport.
+	client := buildHTTPClient(conf)
+	client.Timeout = 5 * time.Second
 
 	resp, err := client.Do(req)
 	if err != nil {
