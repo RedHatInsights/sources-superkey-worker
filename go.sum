@@ -21,8 +21,8 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.6 h1:FpBq24TG6WVSObTNhQO
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.6/go.mod h1:ONzdPVYC95oBOu0VWNEsKEntcoemP3xVKjT+qWml1s4=
 github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.6 h1:Qmn60RWuk9+bd2ddvJJqwf3Cpac3VvGMOdbGemtUhX4=
 github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.6/go.mod h1:h/YJhe4AVyQxEUMluph10iqV7mjajH7A9L+BHF5ppis=
-github.com/aws/aws-sdk-go-v2/service/costandusagereportservice v1.43.4 h1:2wlMnKGjvS+9FVdftlQBRoTDqr/Xx/TE7jEU9xp06Sg=
-github.com/aws/aws-sdk-go-v2/service/costandusagereportservice v1.43.4/go.mod h1:d9x5APE7+l24zBP2KwRCCYmS0VH9tCb6oio5TBS6sxg=
+github.com/aws/aws-sdk-go-v2/service/costandusagereportservice v1.43.5 h1:Yo7tugejrQ2rUsyHQch833jqdiKrfGXGnByUe+0Lg48=
+github.com/aws/aws-sdk-go-v2/service/costandusagereportservice v1.43.5/go.mod h1:d9x5APE7+l24zBP2KwRCCYmS0VH9tCb6oio5TBS6sxg=
 github.com/aws/aws-sdk-go-v2/service/iam v1.64.4 h1:28xB3Sghdz+BOBpar3ksuZ6vdoGRxmcgowF/TRxvgsI=
 github.com/aws/aws-sdk-go-v2/service/iam v1.64.4/go.mod h1:3GrYbh2yqFzIvvRkkSvMaCSxgVyCKTR/Sd+1381K7HM=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.21 h1:e6YW5uME30TkrElR+4/xcY7NB6CCj2dcv7vtmGXhfhQ=
