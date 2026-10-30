@@ -1,15 +1,40 @@
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:bba2b4bbf0ed15cfe7dd72a1e17ae7d2015a141f306b304e1a2785c41400e39c as build
-WORKDIR /build
+################################
+# STEP 1 build executable binary
+################################
+FROM registry.access.redhat.com/hi/go:latest-fips-builder@sha256:b7a89799fe7ac875c0923329ea6cdcb61837027b5a44fa9f23a88101c05e833a AS builder
 
-RUN microdnf install --assumeyes go \
-    && microdnf clean all
+USER 0
 
-COPY . .
-RUN go mod download \
-    && go build
+WORKDIR /workspace
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:bba2b4bbf0ed15cfe7dd72a1e17ae7d2015a141f306b304e1a2785c41400e39c
-COPY --from=build /build/sources-superkey-worker /sources-superkey-worker
+# Cache deps before copying source so that we do not need to re-download for every build
+COPY go.mod go.sum .
+
+# Fetch dependencies hermetically by sourcing the local prefetch cache
+RUN if [ -f /cachi2/cachi2.env ]; then . /cachi2/cachi2.env; fi && \
+    go mod download
+
+# Now copy the rest of the files for build
+COPY *.go .
+COPY amazon amazon
+COPY config config
+COPY logger logger
+COPY provider provider
+COPY sources sources
+COPY superkey superkey
+
+# Build the binary using the local cached modules
+RUN if [ -f /cachi2/cachi2.env ]; then . /cachi2/cachi2.env; fi && \
+    go build -ldflags "-w -s" -o sources-superkey-worker .
+
+############################
+# STEP 2 build a small image
+############################
+FROM registry.access.redhat.com/hi/go:latest-fips@sha256:b793b36bc6129d842d28f051681deb7907aae8b9b40e894fcd62e0fb2c1eaad5
+
+WORKDIR /
+
+COPY --from=builder /workspace/sources-superkey-worker /sources-superkey-worker
 
 COPY licenses/LICENSE /licenses/LICENSE
 
