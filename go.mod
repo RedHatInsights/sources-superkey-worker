@@ -1,9 +1,9 @@
 module github.com/redhatinsights/sources-superkey-worker
 
-go 1.26.0
+go 1.26.3
 
 require (
-	github.com/RedHatInsights/sources-api-go v0.0.0-20250717144439-b5ee99a87b62
+	github.com/RedHatInsights/sources-api-go v0.0.0-20261106133640-24d4c744b9b8
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/aws/aws-sdk-go-v2 v1.47.7
 	github.com/aws/aws-sdk-go-v2/config v1.33.15
@@ -60,6 +60,7 @@ require (
 	github.com/prometheus/client_model v0.6.3 // indirect
 	github.com/prometheus/common v0.73.1 // indirect
 	github.com/prometheus/procfs v0.23.0 // indirect
+	github.com/redhatinsights/platform-go-middlewares/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
